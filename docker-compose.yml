@@ -1,0 +1,23 @@
+
+services:
+  backend:
+    container_name: spagchat-backend
+    build:
+      context: .
+      dockerfile: API/Dockerfile
+    ports:
+      - "5000:5000"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ConnectionStrings__DefaultConnection=Server=db;Database=SpagChatDb;User Id=sa;Password=Pogbayo6.!;TrustServerCertificate=True;MultipleActiveResultSets=true;
+    depends_on:
+      - db
+
+  db:
+    container_name: spagChat-db
+    image: mcr.microsoft.com/mssql/server:2019-latest
+    environment:
+      - ACCEPT_EULA=Y
+      - SA_PASSWORD=Pogbayo6.!
+    ports:
+      - "1433:1433"
