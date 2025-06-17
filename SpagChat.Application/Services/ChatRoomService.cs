@@ -189,6 +189,12 @@ namespace SpagChat.Application.Services
                 var chatRoomDto = _mapper.Map<ChatRoomDto>(chatRoom);
                 var currentUserId = _currentUser.GetCurrentUserId();
 
+                var lastMessage = chatRoom.Messages!
+                    .OrderByDescending(m => m.Timestamp)
+                    .FirstOrDefault();
+
+                chatRoomDto.LastMessageContent = lastMessage?.Content ?? string.Empty;
+              
                 chatRoomDto.Users = chatRoom.ChatRoomUsers!
                      .Select(cru => cru.User!)
                        .Where(u => u.Id != currentUserId)
@@ -244,6 +250,11 @@ namespace SpagChat.Application.Services
                 }
 
                 var currentUserId = _currentUser.GetCurrentUserId();
+
+                var lastMessage = chatRoom.Messages!
+                   .OrderByDescending(m => m.Timestamp)
+                   .FirstOrDefault();
+                chatRoomDto.LastMessageContent = lastMessage?.Content ?? string.Empty;
 
                 chatRoomDto.Users = chatRoom.ChatRoomUsers!
                     .Select(cru => cru.User!)
@@ -345,7 +356,6 @@ namespace SpagChat.Application.Services
             return Result<List<ChatRoomDto>>.SuccessResponse(cachedChatRoomList!,"Chat rooms related to User");
         }
 
-
         public async Task<Result<bool>> UpdateChatRoomNameAsync(Guid chatRoomId, string newName)
         {
             if (chatRoomId == Guid.Empty)
@@ -373,5 +383,53 @@ namespace SpagChat.Application.Services
 
             return Result<bool>.SuccessResponse(true,"ChatRoom name updated successfully.");
         }
+
+        public async Task<Result<List<Guid>>> GetChatRoomIdsForUserAsync(Guid userId)
+        {
+            if (userId == Guid.Empty)
+            {
+                _logger.LogError("Please provide a UserId");
+                return Result<List<Guid>>.FailureResponse("Please provide a UserId");
+            }
+
+            var user = await _applicationUser.GetUserByIdAsync(userId);
+
+            if (user == null)
+            {
+                _logger.LogError($"User with provided id: {userId} does not exist");
+                return Result<List<Guid>>.FailureResponse("User with provided Id was not found");
+            }
+
+            string cacheKey = $"chatRoomIdsRelatedToUser_{userId}";
+
+            if (!_cache.TryGetValue(cacheKey, out List<Guid>? cachedChatRoomIds))
+            {
+                _logger.LogInformation("Cache miss for chat room IDs, fetching from repository...");
+
+                var chatRooms = await _chatRoomRepository.GetChatRoomRelatedToUserAsync(userId);
+                if (chatRooms == null || !chatRooms.Any())
+                {
+                    _logger.LogInformation("User is not part of any chat rooms.");
+                    cachedChatRoomIds = new List<Guid>();
+                    return Result<List<Guid>>.FailureResponse("ChatRoom list is empty");
+                }
+                else
+                {
+                    cachedChatRoomIds = chatRooms.Select(cr => cr.ChatRoomId).ToList();
+                }
+
+                _cache.Set(cacheKey, cachedChatRoomIds, new MemoryCacheEntryOptions
+                {
+                    SlidingExpiration = TimeSpan.FromMinutes(5)
+                });
+            }
+            else
+            {
+                _logger.LogInformation("Cache hit for chat room IDs, returning cached data.");
+            }
+
+            return Result<List<Guid>>.SuccessResponse(cachedChatRoomIds!, "Chat room IDs fetched successfully.");
+        }
+
     }
 }

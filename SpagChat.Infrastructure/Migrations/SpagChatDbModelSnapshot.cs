@@ -234,6 +234,12 @@ namespace SpagChat.Infrastructure.Migrations
                     b.Property<string>("Name")
                         .HasColumnType("nvarchar(max)");
 
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .IsRequired()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion");
+
                     b.HasKey("ChatRoomId");
 
                     b.ToTable("ChatRooms");
@@ -241,17 +247,23 @@ namespace SpagChat.Infrastructure.Migrations
 
             modelBuilder.Entity("SpagChat.Domain.Entities.ChatRoomUser", b =>
                 {
-                    b.Property<Guid>("ChatUserRoomUserId")
+                    b.Property<Guid>("ChatRoomUserId")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uniqueidentifier");
 
                     b.Property<Guid>("ChatRoomId")
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .IsRequired()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion");
+
                     b.Property<Guid>("UserId")
                         .HasColumnType("uniqueidentifier");
 
-                    b.HasKey("ChatUserRoomUserId");
+                    b.HasKey("ChatRoomUserId");
 
                     b.HasIndex("ChatRoomId");
 

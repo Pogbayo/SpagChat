@@ -67,10 +67,9 @@ namespace SpagChat.Application.Services
                 if (existingUserIds.Contains(userId))
                 {
                     _logger.LogError("User can not exist in a group twice");
-                    return Result<string>.FailureResponse("User can not exist in a group twice");
+                    return Result<string>.FailureResponse("User is already in this group");
                 }
             }
-
 
             //foreach (var userId in userIds)
             //{
@@ -94,7 +93,7 @@ namespace SpagChat.Application.Services
             }
 
             _cache.RemoveByPrefix("GetUsersFromChatRoom_");
-            return Result<string>.SuccessResponse("Users added to chat room successfully.");
+            return Result<string>.SuccessResponse("User{s} added to chat room successfully.");
         }
 
         public async Task<Result<IEnumerable<ApplicationUserDto>>> GetUsersFromChatRoomAsync(Guid chatroomId)
@@ -130,7 +129,7 @@ namespace SpagChat.Application.Services
 
             _logger.LogInformation($"Caching users for chat room: {chatRoom.Name}");
 
-            return Result<IEnumerable<ApplicationUserDto>>.SuccessResponse(mappedResult);
+            return Result<IEnumerable<ApplicationUserDto>>.SuccessResponse(mappedResult,$"Users in the {chatRoom.Name} group");
         }
 
         public async Task<Result<string>> RemoveUserFromChatRoomAsync(RemoveUserFromChatRoomDto userDetails)
@@ -148,7 +147,7 @@ namespace SpagChat.Application.Services
                 return Result<string>.FailureResponse("Failed to remove user from chat room.");
             }
 
-            return Result<string>.SuccessResponse("User removed from chat room successfully.");
+            return Result<string>.SuccessResponse("User removed from chat room successfully.","User successfully removed");
         }
 
     }

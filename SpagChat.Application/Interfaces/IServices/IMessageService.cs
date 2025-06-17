@@ -5,7 +5,7 @@ namespace SpagChat.Application.Interfaces.IServices
 {
     public interface IMessageService
     {
-        Task<Result<MessageDto>> SendMessageAsync(SendMessageDto messageDetails);
+        Task<Result<bool>> SendMessageAsync(SendMessageDto messageDetails);
         Task<Result<IEnumerable<MessageDto>>> GetMessagesByChatRoomIdAsync(Guid chatRoomId);
         Task<Result<bool>> DeleteAsync(Guid MessageId);
         Task<Result<bool>> EditMessageAsync(Guid MessageId, string newContent);

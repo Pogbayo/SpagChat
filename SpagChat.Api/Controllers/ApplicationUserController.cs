@@ -20,9 +20,9 @@ namespace SpagChat.API.Controllers
             _hub = hub;
         }
 
-        [HttpGet("all-users")]
+        [HttpGet("all-users/{numberOfUsers}")]
         [Authorize]
-        public async Task<IActionResult> GetAllUsers([FromQuery]int numberOfUsers)
+        public async Task<IActionResult> GetAllUsers(int numberOfUsers)
         {
             var result = await _applicationUserService.GetAllUsersAsync(numberOfUsers);
             return Ok(result);

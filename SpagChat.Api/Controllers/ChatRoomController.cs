@@ -1,7 +1,11 @@
 ﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.SignalR;
+using SpagChat.API.SignalR;
 using SpagChat.Application.DTO.ChatRooms;
 using SpagChat.Application.Interfaces.IServices;
+using SpagChat.Application.Services;
+using SpagChat.Domain.Entities;
 
 namespace SpagChat.API.Controllers
 {
@@ -12,8 +16,11 @@ namespace SpagChat.API.Controllers
     {
         private readonly IChatRoomService _chatRoomService;
 
-        public ChatRoomController(IChatRoomService chatRoomService)
+        private readonly IHubContext<ChatHub> _hubContext;
+  
+        public ChatRoomController(IChatRoomService chatRoomService, IHubContext<ChatHub> hubContext)
         {
+            _hubContext = hubContext;
             _chatRoomService = chatRoomService;
         }
 
@@ -22,9 +29,10 @@ namespace SpagChat.API.Controllers
         public async Task<IActionResult> CreateChatRoom([FromBody] CreateChatRoomDto createChatRoomDto)
         {
             var result = await _chatRoomService.CreateChatRoomAsync(createChatRoomDto);
-
             if (!result.Success)
                 return BadRequest(result);
+
+            await _hubContext.Clients.All.SendAsync("ChatRoomCreated", result.Data);
 
             return CreatedAtAction(nameof(GetChatRoomById), new { chatRoomId = result.Data!.ChatRoomId }, result);
         }
@@ -38,6 +46,7 @@ namespace SpagChat.API.Controllers
 
             if (!result.Success)
                 return BadRequest(result);
+            await _hubContext.Clients.All.SendAsync("ChatRoomDeleted", chatRoomId);
 
             return Ok(result);
         }
@@ -90,6 +99,7 @@ namespace SpagChat.API.Controllers
 
             if (!result.Success)
                 return BadRequest(result);
+            await _hubContext.Clients.All.SendAsync("ChatRoomUpdated", chatRoomId, newName);
 
             return Ok(result);
         }

@@ -1,4 +1,6 @@
-﻿namespace SpagChat.Domain.Entities
+﻿using System.ComponentModel.DataAnnotations;
+
+namespace SpagChat.Domain.Entities
 {
     public class ChatRoom
     {
@@ -8,5 +10,8 @@
 
         public ICollection<ChatRoomUser>? ChatRoomUsers { get; set; } = new List<ChatRoomUser>();
         public ICollection<Message>? Messages { get; set; } = new List<Message>();
+
+        [Timestamp]
+        public byte[] RowVersion { get; set; } = Array.Empty<byte>();
     }
 }

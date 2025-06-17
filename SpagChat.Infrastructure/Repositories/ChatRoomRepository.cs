@@ -83,17 +83,27 @@ namespace SpagChat.Infrastructure.Repositories
         {
             _logger.LogInformation($"Fetching chat room by name: {chatRoomId}");
             var chatRoomRecord = await _dbContext.ChatRooms
+                .Include(c => c.Messages)
                 .Include(c => c.ChatRoomUsers!)
                   .ThenInclude(cru => cru.User)
                 .FirstOrDefaultAsync(cr => cr.ChatRoomId == chatRoomId);
-
+            _logger.LogInformation($"Number of messages in chat room: {chatRoomRecord!.Messages?.Count}");
+            if (chatRoomRecord?.Messages != null)
+            {
+                foreach (var msg in chatRoomRecord.Messages)
+                {
+                    _logger.LogInformation($"Message: {msg.Content}, Timestamp: {msg.Timestamp}");
+                }
+            }
             return chatRoomRecord;
         }
 
         public async Task<ChatRoom?> GetChatRoomByNameAsync(string chatRoomName)
         {
             _logger.LogInformation($"Fetching chat room by name: {chatRoomName}");
-            var chatRoomRecord = await _dbContext.ChatRooms.Include(c => c.ChatRoomUsers!)
+            var chatRoomRecord = await _dbContext.ChatRooms
+                .Include(c => c.Messages)
+                .Include(c => c.ChatRoomUsers!)
                   .ThenInclude(cru => cru.User)
                 .FirstOrDefaultAsync(cr => cr.Name == chatRoomName);
             if (chatRoomRecord == null)
@@ -133,6 +143,14 @@ namespace SpagChat.Infrastructure.Repositories
             await _dbContext.SaveChangesAsync();
             _logger.LogInformation($"Chat room name updated successfully for ID {chatRoomId}");
             return true;
+        }
+
+        public async Task<List<Guid>> GetChatRoomIdsForUserAsync(Guid userId)
+        {
+            return await _dbContext.ChatRoomUsers
+                .Where(cu => cu.UserId == userId)
+                .Select(cu => cu.ChatRoomId)
+                .ToListAsync();
         }
     }
 }

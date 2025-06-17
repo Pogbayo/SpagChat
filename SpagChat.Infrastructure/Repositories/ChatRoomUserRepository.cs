@@ -2,7 +2,6 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using SpagChat.Application.DTO.ChatRoomUsers;
-using SpagChat.Application.DTO.Users;
 using SpagChat.Application.Interfaces.IRepositories;
 using SpagChat.Domain.Entities;
 using SpagChat.Infrastructure.Persistence;
@@ -22,30 +21,41 @@ namespace SpagChat.Infrastructure.Repositories
             _dbContext = dbContext;
         }
 
-        public async Task<bool> AddUserToChatRoomAsync(Guid chatroomId,List<Guid> usersIdList)
+        public async Task<bool> AddUserToChatRoomAsync(Guid chatroomId, List<Guid> usersIdList)
         {
-            var chatRoomRecord = await _dbContext.ChatRooms
-                .Include(cr => cr.ChatRoomUsers)
-                .FirstOrDefaultAsync(cr => cr.ChatRoomId == chatroomId);
+            bool chatRoomExists = await _dbContext.ChatRooms
+                .AsNoTracking()
+                .AnyAsync(cr => cr.ChatRoomId == chatroomId);
 
-            if (chatRoomRecord == null )
+            if (!chatRoomExists)
             {
                 _logger.LogWarning($"Chat room with ID {chatroomId} not found.");
                 return false;
             }
-          
+
+
             foreach (var userId in usersIdList)
-            { 
-                    chatRoomRecord.ChatRoomUsers!.Add(new ChatRoomUser
-                    {
-                        ChatRoomId = chatroomId,
-                        UserId = userId
-                    });
+            {
+                var chatRoomUser = new ChatRoomUser
+                {
+                    ChatRoomUserId = Guid.NewGuid(), 
+                    ChatRoomId = chatroomId,
+                    UserId = userId
+                };
+
+                await _dbContext.ChatRoomUsers.AddAsync(chatRoomUser);
             }
 
-            await _dbContext.SaveChangesAsync();
-            return true;
-
+            try
+            {
+                await _dbContext.SaveChangesAsync();
+                return true;
+            }
+            catch (DbUpdateException ex)
+            {
+                _logger.LogError(ex, "An error occurred while adding users to the chat room.");
+                return false;
+            }
         }
 
         public async Task<IEnumerable<ApplicationUser>?> GetUsersFromChatRoomAsync(Guid chatroomId)

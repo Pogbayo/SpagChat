@@ -15,7 +15,6 @@ using SpagChat.Application.Interfaces.ICache;
 using SpagChat.Application.MemoryCache;
 using SpagChat.API.SignalR;
 using SpagChat.Application.Services;
-using SpagChat.Application.Common.Mappings;
 using SpagChat.Application.Interfaces.IRepositories;
 using SpagChat.Infrastructure.Repositories;
 using SpagChat.Infrastructure.TokenService;
@@ -115,6 +114,8 @@ builder.Logging.ClearProviders();
 builder.Logging.AddConsole();
 builder.Logging.AddDebug();
 builder.Services.AddHttpContextAccessor();
+
+builder.Services.AddRouting(options => options.LowercaseUrls = true);
 
 var app = builder.Build();
 

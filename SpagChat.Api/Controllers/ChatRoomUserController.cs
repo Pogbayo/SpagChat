@@ -1,7 +1,10 @@
 ﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.SignalR;
+using SpagChat.API.SignalR;
 using SpagChat.Application.DTO.ChatRoomUsers;
 using SpagChat.Application.Interfaces.IServices;
+using SpagChat.Domain.Entities;
 
 namespace SpagChat.API.Controllers
 {
@@ -11,27 +14,41 @@ namespace SpagChat.API.Controllers
     public class ChatRoomUserController : ControllerBase
     {
         private readonly IChatRoomUserService _chatRoomUserService;
+        private readonly ILogger<ChatRoomController> _logger;
+        private readonly IHubContext<ChatHub> _hubContext;
 
-        public ChatRoomUserController(IChatRoomUserService chatRoomUserService)
+        public ChatRoomUserController(IHubContext<ChatHub> hubContext,IChatRoomUserService chatRoomUserService, ILogger<ChatRoomController> logger)
         {
+            _hubContext = hubContext;
             _chatRoomUserService = chatRoomUserService;
+            _logger = logger;
+
         }
 
         [HttpPost("{chatRoomId}/users")]
         [Authorize]
         public async Task<IActionResult> AddUsersToChatRoom(Guid chatRoomId, [FromBody] List<Guid> userIds)
         {
+            _logger.LogInformation($"[{DateTime.UtcNow}] AddUsersToChatRoom endpoint called with ChatRoomId: {chatRoomId} and Users: {string.Join(", ", userIds)}");
+
             var result = await _chatRoomUserService.AddUsersToChatRoomAsync(chatRoomId, userIds);
 
             if (!result.Success)
                 return BadRequest(result);
 
+            await _hubContext.Clients.Group(chatRoomId.ToString()).SendAsync("UsersChanged", new
+            {
+                Event = "UsersAdded",
+                UserIds = userIds
+            });
+
             return Ok(result);
         }
 
+
         [HttpGet("{chatRoomId}/users")]
         [Authorize]
-        public async Task<IActionResult> GetUsersFromChatRoom([FromQuery] Guid chatRoomId)
+        public async Task<IActionResult> GetUsersFromChatRoom( Guid chatRoomId)
         {
             var result = await _chatRoomUserService.GetUsersFromChatRoomAsync(chatRoomId);
 
@@ -41,9 +58,9 @@ namespace SpagChat.API.Controllers
             return Ok(result);
         }
 
-        [HttpDelete("{chatRoomId}/users/{userId}")]
+        [HttpDelete("{chatRoomId}/users/")]
         [Authorize]
-        public async Task<IActionResult> RemoveUserFromChatRoom(Guid  chatRoomId, Guid userId)
+        public async Task<IActionResult> RemoveUserFromChatRoom(Guid  chatRoomId,[FromBody] Guid userId)
         {
             var userDetails = new RemoveUserFromChatRoomDto
             {
@@ -54,6 +71,12 @@ namespace SpagChat.API.Controllers
 
             if (!result.Success)
                 return BadRequest(result);
+
+            await _hubContext.Clients.Group(chatRoomId.ToString()).SendAsync("UsersChanged", new
+            {
+                Event = "UserRemoved",
+                UserId = userId
+            });
 
             return Ok(result);
         }

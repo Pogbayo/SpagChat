@@ -21,8 +21,20 @@ namespace SpagChat.Infrastructure.Persistence
         {
             base.OnModelCreating(modelBuilder);
 
-            modelBuilder.Entity<ChatRoomUser>()
-                .HasKey(cru => cru.ChatUserRoomUserId);
+            modelBuilder.Entity<ChatRoomUser>(entity =>
+            {
+                entity.HasKey(cru => cru.ChatRoomUserId);
+                entity.Property(cr => cr.RowVersion)
+                    .IsRowVersion()
+                    .IsConcurrencyToken();
+            });
+
+            modelBuilder.Entity<ChatRoom>(entity =>
+            {
+                entity.Property(cr => cr.RowVersion)
+                    .IsRowVersion()
+                    .IsConcurrencyToken();
+            });
         }
     }
 }

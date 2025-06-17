@@ -28,11 +28,10 @@ public class MessageController : ControllerBase
             return BadRequest(result);
 
         await _hubContext.Clients.Group(messageDetails.ChatRoomId.ToString())
-            .SendAsync("ReceiveMessage", result.Data);
+            .SendAsync("SendMessage", result.Data);
 
         return Ok(result);
     }
-
 
     [HttpGet("chatroom/{chatRoomId}")]
     [Authorize]
@@ -55,8 +54,6 @@ public class MessageController : ControllerBase
         if (!result.Success)
             return BadRequest(result);
 
-        await _hubContext.Clients.All.SendAsync("MessageEdited", messageId, newContent);
-
         return Ok(result);
     }
 
@@ -69,7 +66,8 @@ public class MessageController : ControllerBase
         if (!result.Success)
             return BadRequest(result);
 
-        await _hubContext.Clients.All.SendAsync("MessageDeleted", messageId);
+        await _hubContext.Clients.Group(messageDetails.ChatRoomId.ToString())
+           .SendAsync("DeleteMessage", messageId);
 
         return Ok(result);
     }

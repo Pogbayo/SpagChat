@@ -10,6 +10,7 @@ namespace SpagChat.Application.Interfaces.IRepositories
         Task<ChatRoom?> GetChatRoomByNameAsync(string chatRoomName);
         Task<ChatRoom?> GetChatRoomByIdAsync(Guid chatRoomId);
         Task<ChatRoom?> GetPrivateChatRoomAsync(List<Guid> memberIds);
+        Task<List<Guid>> GetChatRoomIdsForUserAsync(Guid userId);
         Task<bool> DeleteChatRoom(Guid chatRoomId);
         Task<bool> ChatRoomExistsAsync(Guid chatRoomId);
         Task<bool> UpdateChatRoomName(Guid ChatRoomId, string newName);
