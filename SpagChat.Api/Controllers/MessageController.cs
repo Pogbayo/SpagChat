@@ -66,9 +66,6 @@ public class MessageController : ControllerBase
         if (!result.Success)
             return BadRequest(result);
 
-        await _hubContext.Clients.Group(messageDetails.ChatRoomId.ToString())
-           .SendAsync("DeleteMessage", messageId);
-
         return Ok(result);
     }
 }
