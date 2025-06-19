@@ -9,6 +9,8 @@ using SpagChat.Application.Interfaces.IRepositories;
 using SpagChat.Application.Interfaces.IServices;
 using SpagChat.Application.Result;
 using SpagChat.Domain.Entities;
+using System.Text.Json;
+using System.Xml;
 
 namespace SpagChat.Application.Services
 {
@@ -226,22 +228,16 @@ namespace SpagChat.Application.Services
                 var chatRoomDto = _mapper.Map<ChatRoomDto>(chatRoom);
                 var currentUserId = _currentUser.GetCurrentUserId();
 
-                var lastMessage = chatRoom.Messages!
-                    .OrderByDescending(m => m.Timestamp)
-                    .FirstOrDefault();
-
-                chatRoomDto.LastMessageContent = lastMessage?.Content ?? string.Empty;
-              
                 chatRoomDto.Users = chatRoom.ChatRoomUsers!
-                     .Select(cru => cru.User!)
-                       .Where(u => u.Id != currentUserId)
-                           .Select(u => new ApplicationUserDto
-                      {
-                            Id = u.Id,
-                            Username = u.UserName!,
-                            DpUrl = u.DpUrl!
-                       })
-                         .ToList();
+                    .Select(cru => cru.User!)
+                    .Where(u => u.Id != currentUserId)
+                    .Select(u => new ApplicationUserDto
+                    {
+                        Id = u.Id,
+                        Username = u.UserName!,
+                        DpUrl = u.DpUrl!
+                    })
+                    .ToList();
 
                 cachedChatRoom = chatRoomDto;
 
@@ -254,7 +250,7 @@ namespace SpagChat.Application.Services
             }
 
             _logger.LogInformation("Cache hit, returning cached chat room...");
-            return Result<ChatRoomDto?>.SuccessResponse(cachedChatRoom,"Chat Room fetched successfully.");
+            return Result<ChatRoomDto?>.SuccessResponse(cachedChatRoom, "Chat Room fetched successfully.");
         }
 
         public async Task<Result<ChatRoomDto?>> GetChatRoomByNameAsync(string chatRoomName)
@@ -279,18 +275,7 @@ namespace SpagChat.Application.Services
 
                 var chatRoomDto = _mapper.Map<ChatRoomDto>(chatRoom);
 
-                if (chatRoomDto == null)
-                {
-                    _logger.LogError("Mapped chatRoomDto is null");
-                    return Result<ChatRoomDto?>.FailureResponse("An unexpected error occurred: ChatRoomDto is null");
-                }
-
                 var currentUserId = _currentUser.GetCurrentUserId();
-
-                var lastMessage = chatRoom.Messages!
-                   .OrderByDescending(m => m.Timestamp)
-                   .FirstOrDefault();
-                chatRoomDto.LastMessageContent = lastMessage?.Content ?? string.Empty;
 
                 chatRoomDto.Users = chatRoom.ChatRoomUsers!
                     .Select(cru => cru.User!)
@@ -315,7 +300,7 @@ namespace SpagChat.Application.Services
                 _logger.LogInformation("Cache hit, returning cached chat room...");
             }
 
-            return Result<ChatRoomDto?>.SuccessResponse(cachedChatRoom,"ChatRoom fetched successfully.");
+            return Result<ChatRoomDto?>.SuccessResponse(cachedChatRoom, "ChatRoom fetched successfully.");
         }
 
         public async Task<Result<List<ChatRoomDto>>> GetChatRoomRelatedToUserAsync(Guid UserId)
@@ -356,12 +341,6 @@ namespace SpagChat.Application.Services
 
                 var chatRoomListDto = _mapper.Map<List<ChatRoomDto>>(chatRoomList);
 
-                if (chatRoomListDto == null)
-                {
-                    _logger.LogError("Chat room list is null");
-                    return Result<List<ChatRoomDto>>.FailureResponse("An unexpected error occurred: Cached chat room list is null");
-                }
-
                 foreach (var chatRoomDto in chatRoomListDto)
                 {
                     var correspondingChatRoom = chatRoomList.First(cr => cr.ChatRoomId == chatRoomDto.ChatRoomId);
@@ -375,14 +354,10 @@ namespace SpagChat.Application.Services
                         })
                         .ToList();
 
-                    var lastMessage = correspondingChatRoom.Messages?
-                         .OrderByDescending(m => m.Timestamp)  
-                         .FirstOrDefault();
-
-                    chatRoomDto.LastMessageContent = lastMessage!.Content;
                     _logger.LogInformation($"ChatRoom {chatRoomDto.Name} has {chatRoomDto.Users.Count} users.");
-
                 }
+
+                _logger.LogWarning("This is the chatRoomList: {ChatRoomList}", JsonSerializer.Serialize(chatRoomListDto, new JsonSerializerOptions { WriteIndented = true }));
 
                 cachedChatRoomList = chatRoomListDto;
 
@@ -392,7 +367,7 @@ namespace SpagChat.Application.Services
                 });
             }
 
-            return Result<List<ChatRoomDto>>.SuccessResponse(cachedChatRoomList!,"Chat rooms related to User");
+            return Result<List<ChatRoomDto>>.SuccessResponse(cachedChatRoomList!, "Chat rooms related to User");
         }
 
         public async Task<Result<bool>> UpdateChatRoomNameAsync(Guid chatRoomId, string newName)

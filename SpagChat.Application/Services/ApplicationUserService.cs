@@ -20,8 +20,10 @@ namespace SpagChat.Application.Services
         private readonly ITokenGenerator _tokenGenerator;
         private readonly IMapper _mapper;
         private readonly ICustomMemoryCache _cache;
-        public ApplicationUserService(ICustomMemoryCache cache, IMapper mapper,ITokenGenerator tokenGenerator,ILogger<ApplicationUserService> logger, IEmailService emailService, IApplicationUserRepository applicationUserRepository)
+        private readonly IChatRoomUserService _chatRoomUserService;
+        public ApplicationUserService(IChatRoomUserService chatRoomUserService,ICustomMemoryCache cache, IMapper mapper,ITokenGenerator tokenGenerator,ILogger<ApplicationUserService> logger, IEmailService emailService, IApplicationUserRepository applicationUserRepository)
         {
+            _chatRoomUserService = chatRoomUserService;
             _cache = cache;
             _mapper = mapper;
             _tokenGenerator = tokenGenerator;
@@ -161,8 +163,11 @@ namespace SpagChat.Application.Services
             };
 
             var result = await _applicationUserRepository.CreateUserAsync(user, userdetails.Password);
+            await _chatRoomUserService.AddUsersToChatRoomAsync(
+                Guid.Parse("42E088DE-97D6-459C-CD2D-08DDAB8890DF"),
+                new List<Guid> { Guid.Parse($"{user.Id}") }
 
-            if (result == null || !result.Succeeded)
+            ); if (result == null || !result.Succeeded)
             {
                 _logger.LogError("User registration failed.");
                 var error = result?.Errors?.FirstOrDefault()?.Description ?? "Unknown registration error.";

@@ -11,9 +11,10 @@ public class MessageController : ControllerBase
 {
     private readonly IMessageService _messageService;
     private readonly IHubContext<ChatHub> _hubContext;
-
-    public MessageController(IMessageService messageService, IHubContext<ChatHub> hubContext)
+    private readonly ILogger<MessageController> _logger;
+    public MessageController(ILogger<MessageController> logger,IMessageService messageService, IHubContext<ChatHub> hubContext)
     {
+        _logger = logger;
         _messageService = messageService;
         _hubContext = hubContext;
     }
@@ -37,6 +38,7 @@ public class MessageController : ControllerBase
     [Authorize]
     public async Task<IActionResult> GetMessagesByChatRoomId(Guid chatRoomId)
     {
+        _logger.LogInformation("Route hit by client");
         var result = await _messageService.GetMessagesByChatRoomIdAsync(chatRoomId);
 
         if (!result.Success)

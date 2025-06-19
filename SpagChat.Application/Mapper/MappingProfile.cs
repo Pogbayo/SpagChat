@@ -18,14 +18,15 @@ namespace SpagChat.Application.Common.Mappings
 
             // ChatRoom -> ChatRoomDto
             CreateMap<ChatRoom, ChatRoomDto>()
-                //.ForMember(dest => dest.LastMessage, opt => opt.MapFrom(src =>
-                //    src.Messages != null && src.Messages.Any()
-                //        ? src.Messages.OrderByDescending(m => m.Timestamp).First().Content
-                //        : ""))
-                .ForMember(dest => dest.LastMessageTimestamp, opt => opt.MapFrom(src =>
-                    src.Messages != null && src.Messages.Any()
-                        ? src.Messages.OrderByDescending(m => m.Timestamp).First().Timestamp
-                        : (DateTime?)null));
+              .ForMember(dest => dest.LastMessageContent, opt => opt.MapFrom(src =>
+               src.Messages != null && src.Messages.Any()
+             ? src.Messages.OrderByDescending(m => m.Timestamp).First().Content
+             : string.Empty))
+             .ForMember(dest => dest.LastMessageTimestamp, opt => opt.MapFrom(src =>
+              src.Messages != null && src.Messages.Any()
+             ? src.Messages.OrderByDescending(m => m.Timestamp).First().Timestamp
+             : (DateTime?)null));
+
 
             // ChatRoom -> ChatRoomPreviewDto
             CreateMap<ChatRoom, ChatRoomPreviewDto>()
