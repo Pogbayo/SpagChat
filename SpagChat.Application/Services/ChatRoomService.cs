@@ -48,8 +48,6 @@ namespace SpagChat.Application.Services
             return Result<bool>.SuccessResponse(true,"ChatRoom exists");
         }
 
-        //eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJodHRwOi8vc2NoZW1hcy54bWxzb2FwLm9yZy93cy8yMDA1LzA1L2lkZW50aXR5L2NsYWltcy9uYW1laWRlbnRpZmllciI6IjMxNDcxMWE0LTAzYzMtNGM4Mi1jZWNhLTA4ZGRhYWM3OWNhZCIsImh0dHA6Ly9zY2hlbWFzLnhtbHNvYXAub3JnL3dzLzIwMDUvMDUvaWRlbnRpdHkvY2xhaW1zL2VtYWlsYWRkcmVzcyI6ImFkZWJheW9vbHV3YXNlZ3VuMzM1QGdtYWlsLmNvbSIsImV4cCI6MTc0OTk4ODM0MywiaXNzIjoiaHR0cHM6Ly9sb2NhbGhvc3Q6NTAwMSIsImF1ZCI6Imh0dHBzOi8vbG9jYWxob3N0OjUwMDEifQ.uRjNU0XYrAS_02W-slHlSsk-_qYWmETCOAAZDf5prCQ
-
         public async Task<Result<ChatRoomDto?>> CreateChatRoomAsync(CreateChatRoomDto createChatRoomDto)
         {
             if (createChatRoomDto.IsGroup  && string.IsNullOrWhiteSpace(createChatRoomDto.Name) )
@@ -136,16 +134,55 @@ namespace SpagChat.Application.Services
 
             var existingPrivateChat = await _chatRoomRepository.GetPrivateChatRoomAsync(memberIds);
 
-            if (existingPrivateChat == null)
+            if (existingPrivateChat != null)
             {
-                _logger.LogInformation("No private chat found with these exact members.");
-                return Result<ChatRoomDto?>.FailureResponse("No private chat found with these exact members.");
+                var existingChatDto = _mapper.Map<ChatRoomDto>(existingPrivateChat);
+                return Result<ChatRoomDto?>.SuccessResponse(existingChatDto, "Private chatRoom fetched successfully");
+            }
+            _logger.LogInformation("No private chat found. Creating a new one...");
+
+            var newChatRoom = new CreateChatRoomDto
+            {
+                Name = "",
+                IsGroup = false,
+                MemberIds = memberIds
+            };
+
+            var crDtoToEntity = _mapper.Map<ChatRoom>(newChatRoom);
+            foreach (var userId in memberIds!)
+            {
+                crDtoToEntity.ChatRoomUsers!.Add(new ChatRoomUser
+                {
+                    ChatRoomId = crDtoToEntity.ChatRoomId,
+                    UserId = userId
+                });
             }
 
-            var chatRoomDto = _mapper.Map<ChatRoomDto>(existingPrivateChat);
-            return Result<ChatRoomDto?>.SuccessResponse(chatRoomDto,"Private chatRoom fetched successfully");
-        }
+            var createdChatRoom = await _chatRoomRepository.CreateChatRoomAsync(crDtoToEntity);
 
+            var entityToDto = _mapper.Map<ChatRoomDto>(createdChatRoom);
+            var currentUserId = _currentUser.GetCurrentUserId();
+
+            entityToDto.Users = createdChatRoom!.ChatRoomUsers!
+                          .Select(cru => cru.User)
+                          .Where(u => u.Id != currentUserId)
+                          .Select(u => new ApplicationUserDto
+                          {
+                              Id = u.Id,
+                              Username = u.UserName!,
+                              DpUrl = u.DpUrl!
+                          })
+                          .ToList();
+
+            _cache.RemoveByPrefix($"chatRoomByName_");
+
+            foreach (var userId in memberIds!)
+            {
+                _cache.Remove($"chatRoomRelatedToUser_{userId}");
+            }
+            return Result<ChatRoomDto?>.SuccessResponse(entityToDto, "ChatRoom created successfully");
+
+        }
 
         public async Task<Result<bool>> DeleteChatRoomAsync(Guid chatRoomId)
         {
@@ -220,7 +257,6 @@ namespace SpagChat.Application.Services
             return Result<ChatRoomDto?>.SuccessResponse(cachedChatRoom,"Chat Room fetched successfully.");
         }
 
-
         public async Task<Result<ChatRoomDto?>> GetChatRoomByNameAsync(string chatRoomName)
         {
             if (string.IsNullOrWhiteSpace(chatRoomName))
@@ -282,7 +318,6 @@ namespace SpagChat.Application.Services
             return Result<ChatRoomDto?>.SuccessResponse(cachedChatRoom,"ChatRoom fetched successfully.");
         }
 
-
         public async Task<Result<List<ChatRoomDto>>> GetChatRoomRelatedToUserAsync(Guid UserId)
         {
             if (UserId == Guid.Empty)
@@ -340,10 +375,14 @@ namespace SpagChat.Application.Services
                         })
                         .ToList();
 
+                    var lastMessage = correspondingChatRoom.Messages?
+                         .OrderByDescending(m => m.Timestamp)  
+                         .FirstOrDefault();
+
+                    chatRoomDto.LastMessageContent = lastMessage!.Content;
                     _logger.LogInformation($"ChatRoom {chatRoomDto.Name} has {chatRoomDto.Users.Count} users.");
 
                 }
-
 
                 cachedChatRoomList = chatRoomListDto;
 

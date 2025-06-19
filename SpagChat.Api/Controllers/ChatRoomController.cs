@@ -116,5 +116,23 @@ namespace SpagChat.API.Controllers
 
             return Ok(result);
         }
+
+        [HttpGet("get-private-chat")]
+        [Authorize]
+        public async Task<IActionResult> GetPrivateChatAsync([FromQuery] Guid currentUserId, [FromQuery] Guid friendUserId)
+        {
+            var memberIds = new List<Guid>
+            {
+              currentUserId,
+              friendUserId
+            };
+
+            var result = await _chatRoomService.GetPrivateChatAsync(memberIds);
+
+            if (!result.Success)
+                return NotFound(result);
+
+            return Ok(result);
+        }
     }
 }

@@ -2,6 +2,7 @@
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging;
 using SpagChat.Application.DTO.Auth;
+using SpagChat.Application.DTO.LoginResponse;
 using SpagChat.Application.DTO.Users;
 using SpagChat.Application.Interfaces.ICache;
 using SpagChat.Application.Interfaces.IRepositories;
@@ -110,20 +111,20 @@ namespace SpagChat.Application.Services
         }
 
 
-        public async Task<Result<string>> LoginAsync(LoginUserDto userDetails)
+        public async Task<Result<LoginResponseDto>> LoginAsync(LoginUserDto userDetails)
         {
             if (string.IsNullOrWhiteSpace(userDetails.Email) || string.IsNullOrWhiteSpace(userDetails.Password))
             {
                 _logger.LogWarning("Invalid credentials provided.");
-                return Result<string>.FailureResponse("Invalid credentials.", "Email and Password cannot be empty.");
+                return Result<LoginResponseDto>.FailureResponse("Invalid credentials.", "Email and Password cannot be empty.");
             }
 
             var user = await _applicationUserRepository.LoginAsync(userDetails);
-
+            var mappedUser = _mapper.Map<ApplicationUserDto>(user);
             if (user == null)
             {
                 _logger.LogWarning("User not found.");
-                return Result<string>.FailureResponse("User not found.", "Invalid email or password.");
+                return Result<LoginResponseDto>.FailureResponse("User not found.", "Invalid email or password.");
             }
 
             var token = _tokenGenerator.GenerateAccessToken(user);
@@ -134,7 +135,14 @@ namespace SpagChat.Application.Services
                 throw new ArgumentNullException("Token is null");
             }
 
-            return Result<string>.SuccessResponse(token, "Login successful.");
+            var newObject = new LoginResponseDto
+            {
+                Token = token,
+                User = mappedUser,
+            };
+
+            _logger.LogInformation($"This is the user details,{mappedUser}");
+            return Result<LoginResponseDto>.SuccessResponse(newObject, "Login successful.");
         }
 
 

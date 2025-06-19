@@ -109,6 +109,17 @@ builder.Services.AddAuthentication(options =>
 });
 
 
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("AllowLocalhost",
+        policy =>
+        {
+            policy.WithOrigins("http://localhost:5173")
+            .AllowAnyHeader()
+            .AllowAnyMethod();
+        });
+});
+
 builder.Services.AddMemoryCache();
 builder.Logging.ClearProviders();
 builder.Logging.AddConsole();
@@ -119,7 +130,7 @@ builder.Services.AddRouting(options => options.LowercaseUrls = true);
 
 var app = builder.Build();
 
-// Configure the HTTP request pipeline.
+
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
@@ -129,6 +140,8 @@ if (app.Environment.IsDevelopment())
 app.MapHub<ChatHub>("/chathub");
 
 app.UseHttpsRedirection();
+app.UseCors("AllowLocalhost");
+
 app.UseAuthentication();
 app.UseAuthorization();
 

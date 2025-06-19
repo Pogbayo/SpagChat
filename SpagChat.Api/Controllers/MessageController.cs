@@ -28,7 +28,7 @@ public class MessageController : ControllerBase
             return BadRequest(result);
 
         await _hubContext.Clients.Group(messageDetails.ChatRoomId.ToString())
-            .SendAsync("SendMessage", result.Data);
+            .SendAsync("ReceiveMessage", result.Data);
 
         return Ok(result);
     }
