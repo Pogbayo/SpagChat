@@ -1,23 +1,22 @@
-using MailKit;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
+using SpagChat.API.SignalR;
+using SpagChat.Application.Interfaces.ICache;
+using SpagChat.Application.Interfaces.IRepositories;
 using SpagChat.Application.Interfaces.IServices;
 using SpagChat.Application.JWT;
+using SpagChat.Application.MemoryCache;
+using SpagChat.Application.Services;
 using SpagChat.Domain.Entities;
 using SpagChat.Infrastructure.Configurations;
-using SpagChat.Infrastructure.Persistence;
-using System.Text;
 using SpagChat.Infrastructure.Mailer;
-using SpagChat.Application.Interfaces.ICache;
-using SpagChat.Application.MemoryCache;
-using SpagChat.API.SignalR;
-using SpagChat.Application.Services;
-using SpagChat.Application.Interfaces.IRepositories;
+using SpagChat.Infrastructure.Persistence;
 using SpagChat.Infrastructure.Repositories;
 using SpagChat.Infrastructure.TokenService;
+using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -106,6 +105,23 @@ builder.Services.AddAuthentication(options =>
         ValidIssuer = builder.Configuration["Jwt:Issuer"],
         ValidAudience = builder.Configuration["Jwt:Audience"]
     };
+
+    options.Events = new JwtBearerEvents
+    {
+        OnMessageReceived = context =>
+        {
+            var accessToken = context.Request.Query["access_token"];
+
+            var path = context.HttpContext.Request.Path;
+
+            if (!string.IsNullOrEmpty(accessToken) && path.StartsWithSegments("/chathub"))
+            {
+                context.Token = accessToken;
+            }
+
+            return Task.CompletedTask;
+        }
+    };
 });
 
 
@@ -116,7 +132,8 @@ builder.Services.AddCors(options =>
         {
             policy.WithOrigins("http://localhost:5173")
             .AllowAnyHeader()
-            .AllowAnyMethod();
+            .AllowAnyMethod()
+            .AllowCredentials();
         });
 });
 
@@ -136,11 +153,11 @@ if (app.Environment.IsDevelopment())
     app.UseSwagger();
     app.UseSwaggerUI();
 }
+app.UseCors("AllowLocalhost");
 
-app.MapHub<ChatHub>("/chathub");
+app.MapHub<ChatHub>("/chathub").RequireAuthorization();
 
 app.UseHttpsRedirection();
-app.UseCors("AllowLocalhost");
 
 app.UseAuthentication();
 app.UseAuthorization();

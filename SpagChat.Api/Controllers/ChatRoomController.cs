@@ -15,11 +15,12 @@ namespace SpagChat.API.Controllers
     public class ChatRoomController : ControllerBase
     {
         private readonly IChatRoomService _chatRoomService;
-
+        private readonly ILogger<ChatRoomController> _logger;
         private readonly IHubContext<ChatHub> _hubContext;
   
-        public ChatRoomController(IChatRoomService chatRoomService, IHubContext<ChatHub> hubContext)
+        public ChatRoomController(ILogger<ChatRoomController> logger,IChatRoomService chatRoomService, IHubContext<ChatHub> hubContext)
         {
+            _logger = logger;
             _hubContext = hubContext;
             _chatRoomService = chatRoomService;
         }
@@ -121,7 +122,7 @@ namespace SpagChat.API.Controllers
         [Authorize]
         public async Task<IActionResult> GetPrivateChatAsync([FromQuery] Guid currentUserId, [FromQuery] Guid friendUserId)
         {
-            var memberIds = new List<Guid>
+             List<Guid> memberIds = new List<Guid>
             {
               currentUserId,
               friendUserId
@@ -131,6 +132,26 @@ namespace SpagChat.API.Controllers
 
             if (!result.Success)
                 return NotFound(result);
+
+            return Ok(result);
+        }
+
+        [HttpGet("not-in/{userId}")]
+        [Authorize]
+        public async Task<IActionResult> GetChatRoomsUserIsNotIn(Guid userId)
+        {
+            if (userId == Guid.Empty)
+            {
+                return BadRequest("Invalid user Id.");
+            }
+
+            var result = await _chatRoomService.GetChatRoomsUserIsNotInAsync(userId);
+
+            if (!result.Success)
+            {
+                _logger.LogError("Failed to get chat rooms user is not in: {Error}", result.Error);
+                return NotFound(result);
+            }
 
             return Ok(result);
         }

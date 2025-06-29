@@ -6,6 +6,7 @@ namespace SpagChat.Application.Interfaces.IRepositories
     public interface IChatRoomRepository
     {
         Task<ChatRoom?> CreateChatRoomAsync(ChatRoom chatRoom);
+        Task<List<ChatRoom>> GetChatRoomsthatUserIsNotIn(Guid currentUserId);
         Task<List<ChatRoom>> GetChatRoomRelatedToUserAsync(Guid UserId);
         Task<ChatRoom?> GetChatRoomByNameAsync(string chatRoomName);
         Task<ChatRoom?> GetChatRoomByIdAsync(Guid chatRoomId);

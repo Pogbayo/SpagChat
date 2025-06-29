@@ -6,6 +6,7 @@ namespace SpagChat.Application.Interfaces.IServices
     public interface IChatRoomService
     {
         Task<Result<ChatRoomDto?>> CreateChatRoomAsync(CreateChatRoomDto chatRoomDetails);
+        Task<Result<List<ChatRoomDto>>> GetChatRoomsUserIsNotInAsync(Guid currentUserId);
         Task<Result<List<ChatRoomDto>>> GetChatRoomRelatedToUserAsync(Guid UserId);
         Task<Result<ChatRoomDto?>> GetChatRoomByNameAsync(string chatRoomName);
         Task<Result<ChatRoomDto?>> GetChatRoomByIdAsync(Guid chatRoomId);

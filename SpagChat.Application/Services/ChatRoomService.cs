@@ -186,6 +186,51 @@ namespace SpagChat.Application.Services
 
         }
 
+        public async Task<Result<List<ChatRoomDto>>> GetChatRoomsUserIsNotInAsync(Guid currentUserId)
+        {
+            if (currentUserId == Guid.Empty)
+            {
+                _logger.LogError("Please provide a valid user Id");
+                return Result<List<ChatRoomDto>>.FailureResponse("Please provide a valid user Id");
+            }
+
+            try
+            {
+                var chatRooms = await _chatRoomRepository.GetChatRoomsthatUserIsNotIn(currentUserId);
+
+                if (chatRooms == null || !chatRooms.Any())
+                {
+                    _logger.LogInformation("No chat rooms found that the user is not part of");
+                    return Result<List<ChatRoomDto>>.SuccessResponse(new List<ChatRoomDto>(), "No chat rooms found that the user is not part of");
+                }
+
+                var currentUserIdLocal = _currentUser.GetCurrentUserId();
+
+                var chatRoomDtos = chatRooms.Select(cr =>
+                {
+                    var dto = _mapper.Map<ChatRoomDto>(cr);
+                    dto.Users = cr.ChatRoomUsers!
+                        .Select(cru => cru.User!)
+                        .Where(u => u.Id != currentUserIdLocal)
+                        .Select(u => new ApplicationUserDto
+                        {
+                            Id = u.Id,
+                            Username = u.UserName!,
+                            DpUrl = u.DpUrl!
+                        })
+                        .ToList();
+                    return dto;
+                }).ToList();
+
+                return Result<List<ChatRoomDto>>.SuccessResponse(chatRoomDtos, "Chat rooms fetched successfully.");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error fetching chat rooms that user is not in");
+                return Result<List<ChatRoomDto>>.FailureResponse("Failed to fetch chat rooms due to an error.");
+            }
+        }
+
         public async Task<Result<bool>> DeleteChatRoomAsync(Guid chatRoomId)
         {
             if (chatRoomId == Guid.Empty)

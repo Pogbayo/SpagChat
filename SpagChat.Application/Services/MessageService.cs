@@ -107,25 +107,25 @@ namespace SpagChat.Application.Services
             return Result<IEnumerable<MessageDto>>.SuccessResponse(cachedMessages, "Messages in chatRoom fecthed successfully.");
         }
 
-        public async Task<Result<bool>> SendMessageAsync(SendMessageDto messageDetails)
+        public async Task<Result<MessageDto>> SendMessageAsync(SendMessageDto messageDetails)
         {
             if (messageDetails.SenderId == Guid.Empty || messageDetails.ChatRoomId == Guid.Empty)
             {
                 _logger.LogError("UserId or ChatRoomId is missing");
-                return Result<bool>.FailureResponse("UserId or ChatRoomId is missing");
+                return Result<MessageDto>.FailureResponse("UserId or ChatRoomId is missing");
             }
 
             if (string.IsNullOrWhiteSpace(messageDetails.Content))
             {
                 _logger.LogError("Message content cannot be empty");
-                return Result<bool>.FailureResponse("Message content cannot be empty");
+                return Result<MessageDto>.FailureResponse("Message content cannot be empty");
             }
 
             var chatRoomResult = await _chatRoomService.GetChatRoomByIdAsync(messageDetails.ChatRoomId);
             if (!chatRoomResult.Success || chatRoomResult.Data == null)
             {
                 _logger.LogWarning("Chat Room with provided Id does not exist");
-                return Result<bool>.FailureResponse("ChatRoom does not exist", "Chat room with provided Id does not exist");
+                return Result<MessageDto>.FailureResponse("ChatRoom does not exist", "Chat room with provided Id does not exist");
             }
 
             var chatRoomDto = chatRoomResult.Data;
@@ -134,18 +134,21 @@ namespace SpagChat.Application.Services
             if (!existingUsers.Contains(messageDetails.SenderId))
             {
                 _logger.LogWarning("User cannot send message to a group they are not in...");
-                return Result<bool>.FailureResponse("User not in chatRoom", "Unauthorized");
+                return Result<MessageDto>.FailureResponse("User not in chatRoom", "Unauthorized");
             }
 
             var messageEntity = _mapper.Map<Message>(messageDetails);
             var savedMessage = await _messageRepository.SendMessageAsync(messageEntity);
             var messageDto = _mapper.Map<MessageDto>(savedMessage);
 
+            messageDto.ChatRoomId = messageDetails.ChatRoomId;
+
             string cacheKey = $"chatRoomById_{messageDetails.ChatRoomId}";
             _cache.Remove(cacheKey);
-            _logger.LogInformation($"Cache invalidated for chat room: {cacheKey}");
+            _logger.LogInformation($"Cache invalidated for chat room: {cacheKey}","this is my messageDto", messageDto);
 
-            return Result<bool>.SuccessResponse(true, "Message sent successfully");
+
+            return Result<MessageDto>.SuccessResponse(messageDto, "Message sent successfully");
         }
     }
 }

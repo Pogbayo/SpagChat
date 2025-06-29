@@ -80,5 +80,27 @@ namespace SpagChat.API.Controllers
 
             return Ok(result);
         }
+
+        [HttpGet("non-mutual-friends/{userId}")]
+        [Authorize]
+        public async Task<IActionResult> GetNonMutualFriends(Guid userId)
+        {
+            if (userId == Guid.Empty)
+            {
+                _logger.LogWarning("Empty user ID provided to GetNonMutualFriends.");
+                return BadRequest("Invalid user ID.");
+            }
+
+            var result = await _chatRoomUserService.GetNonMutualFriendsAsync(userId);
+
+            if (!result.Success)
+            {
+                _logger.LogWarning("Failed to get non-mutual friends for user {UserId}. Error: {Error}", userId, result.Error);
+                return NotFound(result.Message ?? "No non-mutual friends found.");
+            }
+
+            return Ok(result);
+        }
+
     }
 }

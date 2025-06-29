@@ -58,6 +58,40 @@ namespace SpagChat.Infrastructure.Repositories
             }
         }
 
+        public async Task<List<Guid>> GetChatRoomIdsByUserIdAsync(Guid userId)
+        {
+            return await _dbContext.ChatRoomUsers
+                .Where(cu => cu.UserId == userId)
+                .Select(cu => cu.ChatRoomId)
+                .Distinct()
+                .ToListAsync();
+        }
+
+        public async Task<List<Guid>> GetUserIdsInChatRoomsExceptAsync(List<Guid> chatRoomIds, Guid excludeUserId)
+        {
+            return await _dbContext.ChatRoomUsers
+                .Where(cu => chatRoomIds.Contains(cu.ChatRoomId) && cu.UserId != excludeUserId)
+                .Select(cu => cu.UserId)
+                .Distinct()
+                .ToListAsync();
+        }
+
+        public async Task<List<Guid>> GetPrivateChatRoomIdsByUserIdAsync(Guid userId)
+        {
+            return await _dbContext.ChatRoomUsers
+                .Where(cu => cu.UserId == userId && cu.ChatRoom.IsGroup == false)
+                .Select(cu => cu.ChatRoomId)
+                .ToListAsync();
+        }
+
+
+        public async Task<List<ApplicationUser>> GetUsersExcludingAsync(List<Guid> excludedUserIds)
+        {
+            return await _dbContext.Users
+                .Where(u => !excludedUserIds.Contains(u.Id))
+                .ToListAsync();
+        }
+
         public async Task<IEnumerable<ApplicationUser>?> GetUsersFromChatRoomAsync(Guid chatroomId)
         {
             var chatRoom = await _dbContext.ChatRooms

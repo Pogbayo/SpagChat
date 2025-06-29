@@ -19,5 +19,7 @@ namespace SpagChat.Domain.Entities
         [ForeignKey(nameof(ChatRoom))]
         public  required Guid ChatRoomId { get; set; }
         public ChatRoom ChatRoom { get; set; } = default!;
+
+
     }
 }

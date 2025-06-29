@@ -66,5 +66,16 @@ namespace SpagChat.API.Controllers
 
             return CreatedAtAction(nameof(GetUserById), new { userId = result.Data }, result);
         }
+
+        [HttpDelete("delete-users")]
+        public async Task<IActionResult> DeleteUsers([FromBody] List<Guid> userIds, [FromQuery] bool useParallel = false)
+        {
+            var result = await _applicationUserService.DeleteUsersAsync(userIds, useParallel);
+
+            if (result.Success)
+                return Ok(result);
+
+            return BadRequest(result);
+        }
     }
 }

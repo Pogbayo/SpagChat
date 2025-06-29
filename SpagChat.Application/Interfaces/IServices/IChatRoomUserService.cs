@@ -7,6 +7,7 @@ namespace SpagChat.Application.Interfaces.IServices
     public interface IChatRoomUserService
     {
         Task<Result<string>> AddUsersToChatRoomAsync(Guid chatroomId, List<Guid> userIds);
+        Task<Result<List<ApplicationUserDto>>> GetNonMutualFriendsAsync(Guid currentUserId);
         Task<Result<string>> RemoveUserFromChatRoomAsync(RemoveUserFromChatRoomDto userDetails);
         Task<Result<IEnumerable<ApplicationUserDto>>> GetUsersFromChatRoomAsync(Guid chatroomId);
     }

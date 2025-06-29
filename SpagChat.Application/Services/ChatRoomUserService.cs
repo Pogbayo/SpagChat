@@ -132,6 +132,39 @@ namespace SpagChat.Application.Services
             return Result<IEnumerable<ApplicationUserDto>>.SuccessResponse(mappedResult,$"Users in the {chatRoom.Name} group");
         }
 
+        public async Task<Result<List<ApplicationUserDto>>> GetNonMutualFriendsAsync(Guid currentUserId)
+        {
+            _logger.LogInformation("Fetching non-mutual (1-on-1) friends for user: {UserId}", currentUserId);
+
+            if (currentUserId == Guid.Empty)
+            {
+                return Result<List<ApplicationUserDto>>.FailureResponse("Invalid user ID.");
+            }
+
+            try
+            {
+                var privateChatRoomIds = await _chatRoomUserRepository.GetPrivateChatRoomIdsByUserIdAsync(currentUserId);
+
+                var mutualUserIds = await _chatRoomUserRepository.GetUserIdsInChatRoomsExceptAsync(privateChatRoomIds, currentUserId);
+
+                var nonMutualUsers = await _chatRoomUserRepository.GetUsersExcludingAsync(mutualUserIds.Append(currentUserId).ToList());
+
+                var mapped = _mapper.Map<List<ApplicationUserDto>>(nonMutualUsers);
+
+                _logger.LogInformation("Found {Count} non-mutual users (1-on-1) for user: {UserId}", mapped.Count, currentUserId);
+
+                return Result<List<ApplicationUserDto>>.SuccessResponse(mapped, "Users without private chats fetched successfully.");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to fetch non-mutual friends.");
+                return Result<List<ApplicationUserDto>>.FailureResponse("Failed to fetch non-mutual friends.", ex.Message);
+            }
+        }
+
+
+
+
         public async Task<Result<string>> RemoveUserFromChatRoomAsync(RemoveUserFromChatRoomDto userDetails)
         {
             if (userDetails.UserId == Guid.Empty || userDetails.ChatRoomId == Guid.Empty)

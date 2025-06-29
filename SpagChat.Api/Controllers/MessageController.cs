@@ -23,6 +23,8 @@ public class MessageController : ControllerBase
     [Authorize]
     public async Task<IActionResult> SendMessageAsync([FromBody] SendMessageDto messageDetails)
     {
+        _logger.LogInformation($"Sending message to chat room: {messageDetails.ChatRoomId}");
+
         var result = await _messageService.SendMessageAsync(messageDetails);
 
         if (!result.Success)
@@ -30,7 +32,11 @@ public class MessageController : ControllerBase
 
         await _hubContext.Clients.Group(messageDetails.ChatRoomId.ToString())
             .SendAsync("ReceiveMessage", result.Data);
+        if (result.Success && result.Data != null)
+        {
+            _logger.LogInformation(result.Data.ToString());
 
+        }
         return Ok(result);
     }
 

@@ -57,7 +57,8 @@ namespace SpagChat.Infrastructure.Repositories
         public async Task<IEnumerable<Message>?> GetMessagesByChatRoomIdAsync(Guid chatRoomId)
         {
             var chatRoom = await _dbContext.ChatRooms
-                .Include(cr => cr.Messages)
+                .Include(cr => cr.Messages!)
+                 .ThenInclude(m => m.Sender)
                 .FirstOrDefaultAsync(cr => cr.ChatRoomId == chatRoomId);
 
             if (chatRoom == null)

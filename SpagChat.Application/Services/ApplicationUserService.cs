@@ -150,35 +150,64 @@ namespace SpagChat.Application.Services
 
         public async Task<Result<Guid>> RegisterUserAsync(CreateUserDto userdetails)
         {
-            if (string.IsNullOrEmpty(userdetails.Email) || string.IsNullOrEmpty(userdetails.Password))
+            if (string.IsNullOrWhiteSpace(userdetails.Email) || string.IsNullOrWhiteSpace(userdetails.Password))
             {
                 _logger.LogWarning("Email or Password is empty.");
                 return Result<Guid>.FailureResponse("Invalid input.", "Email or Password cannot be empty.");
             }
 
+            var existingByEmail = await _applicationUserRepository.FindByEmailAsync(userdetails.Email);
+            if (existingByEmail != null)
+            {
+                _logger.LogWarning("Email already in use.");
+                return Result<Guid>.FailureResponse("Registration failed.", "Email is already registered.");
+            }
+
+            var existingByUsername = await _applicationUserRepository.FindByUsernameAsync(userdetails.UserName);
+            if (existingByUsername != null)
+            {
+                _logger.LogWarning("Username already in use.");
+                return Result<Guid>.FailureResponse("Registration failed.", "Username is already taken.");
+            }
+
             var user = new ApplicationUser
             {
                 Email = userdetails.Email,
-                UserName = userdetails.Email,
+                UserName = userdetails.UserName,
             };
 
             var result = await _applicationUserRepository.CreateUserAsync(user, userdetails.Password);
-            await _chatRoomUserService.AddUsersToChatRoomAsync(
-                Guid.Parse("42E088DE-97D6-459C-CD2D-08DDAB8890DF"),
-                new List<Guid> { Guid.Parse($"{user.Id}") }
 
-            ); if (result == null || !result.Succeeded)
+            if (result != null && result.Succeeded)
             {
-                _logger.LogError("User registration failed.");
-                var error = result?.Errors?.FirstOrDefault()?.Description ?? "Unknown registration error.";
-                return Result<Guid>.FailureResponse("Registration failed.", error);
+                await _chatRoomUserService.AddUsersToChatRoomAsync(
+                    Guid.Parse("42E088DE-97D6-459C-CD2D-08DDAB8890DF"),
+                    new List<Guid> { user.Id }
+                );
+
+                await _emailService.SendEmailAsync(user.Email, "Welcome to SpagChat!", "Thank you for registering!");
+                _cache.RemoveByPrefix("User_");
+
+                return Result<Guid>.SuccessResponse(user.Id, "User registered successfully.");
             }
 
-            await _emailService.SendEmailAsync(user.Email, "Welcome to SpagChat!", "Thank you for registering!");
-            _cache.RemoveByPrefix("User_");
-
-            return Result<Guid>.SuccessResponse(user.Id, "User registered successfully.");
+            _logger.LogError("User registration failed.");
+            var error = result?.Errors?.FirstOrDefault()?.Description ?? "Unknown registration error.";
+            return Result<Guid>.FailureResponse("Registration failed.", error);
         }
 
+
+        public async Task<Result<bool>> DeleteUsersAsync(List<Guid> userIds, bool useParallel = false)
+        {
+            if (userIds == null || !userIds.Any())
+                return Result<bool>.FailureResponse("No user IDs provided.");
+
+            var deletionResult = await _applicationUserRepository.DeleteUsersAsync(userIds, useParallel);
+
+            if (deletionResult)
+                return Result<bool>.SuccessResponse(true, "Users deleted successfully.");
+
+            return Result<bool>.FailureResponse("No matching users found.");
+        }
     }
 }

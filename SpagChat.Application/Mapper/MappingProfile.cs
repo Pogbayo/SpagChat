@@ -43,7 +43,8 @@ namespace SpagChat.Application.Common.Mappings
             CreateMap<ChatRoomUser, ChatRoomUserDto>();
 
             // Message -> MessageDto
-            CreateMap<Message, MessageDto>();
+            CreateMap<Message, MessageDto>()
+                .ForMember(dest => dest.Sender, opt => opt.MapFrom(src => src.Sender));
 
             // SendMessageDto -> Message
             CreateMap<SendMessageDto, Message>();

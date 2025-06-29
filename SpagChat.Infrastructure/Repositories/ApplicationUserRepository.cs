@@ -26,7 +26,7 @@ namespace SpagChat.Infrastructure.Repositories
         {
             return await _userManager.FindByIdAsync(userId.ToString());
         }
-
+        
         public async Task<ApplicationUser?> LoginAsync(LoginUserDto userDetails)
         {
             var user = await _userManager.FindByEmailAsync(userDetails.Email);
@@ -44,5 +44,43 @@ namespace SpagChat.Infrastructure.Repositories
         {
             return await _userManager.CreateAsync(user, password);
         }
+
+        public async Task<ApplicationUser?> FindByEmailAsync(string email)
+        {
+            return await _userManager.FindByEmailAsync(email);
+        }
+
+        public async Task<ApplicationUser?> FindByUsernameAsync(string username)
+        {
+            return await _userManager.FindByNameAsync(username);
+        }
+
+
+        public async Task<bool> DeleteUsersAsync(List<Guid> userIds, bool useParallel = false)
+        {
+            var usersToDelete = await _userManager.Users
+                .Where(u => userIds.Contains(u.Id))
+                .ToListAsync();
+
+            if (!usersToDelete.Any())
+                return false;
+
+            if (useParallel)
+            {
+                var deleteTasks = usersToDelete.Select(user => _userManager.DeleteAsync(user));
+                await Task.WhenAll(deleteTasks);
+            }
+            else
+            {
+                foreach (var user in usersToDelete)
+                {
+                    await _userManager.DeleteAsync(user);
+                }
+            }
+
+            return true;
+        }
+
+
     }
 }

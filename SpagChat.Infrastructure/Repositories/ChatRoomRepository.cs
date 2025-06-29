@@ -51,6 +51,14 @@ namespace SpagChat.Infrastructure.Repositories
             return createdChatRommWithUsers;
         }
 
+        public async Task<List<ChatRoom>> GetChatRoomsthatUserIsNotIn(Guid currentUserId)
+        {
+            var chatRooms = await _dbContext.ChatRooms
+                .Where(cr => !cr.ChatRoomUsers!.Any(cu => cu.UserId == currentUserId))
+                .ToListAsync();
+            return chatRooms;
+        }
+
         public async Task<bool> DeleteChatRoom(Guid chatRoomId)
         {
             _logger.LogInformation($"Attempting to delete chat room with ID: {chatRoomId}");
