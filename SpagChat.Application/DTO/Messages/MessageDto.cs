@@ -9,5 +9,8 @@ namespace SpagChat.Application.DTO.Messages
         public required ApplicationUserDto Sender { get; set; }
         public required string Content { get; set; }
         public DateTime Timestamp { get; set; } = DateTime.UtcNow;
+        public required bool isEdited { get; set; }
+        public required bool isDeleted { get; set; }
+        public required List<Guid> readby { get; set; }
     }
 }

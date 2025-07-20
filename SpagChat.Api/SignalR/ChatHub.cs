@@ -8,6 +8,7 @@ namespace SpagChat.API.SignalR
     {
         public static Dictionary<string, string> OnlineUsers = new Dictionary<string, string>();
         private readonly IChatRoomService _chatRoomService;
+        public static Dictionary<string, HashSet<string>> ChatRoomConnections = new();
 
         public ChatHub(IChatRoomService chatRoomService)
         {
@@ -47,11 +48,20 @@ namespace SpagChat.API.SignalR
 
         public override async Task OnDisconnectedAsync(Exception? exception)
         {
-           
             var user = OnlineUsers.FirstOrDefault(x => x.Value == Context.ConnectionId);
             if (!string.IsNullOrEmpty(user.Key))
             {
                 OnlineUsers.Remove(user.Key);
+                await BroadcastOnlineUsers();
+
+                lock (ChatRoomConnections)
+                {
+                    foreach (var group in ChatRoomConnections)
+                    {
+                        group.Value.Remove(user.Key);
+                    }
+                }
+
                 Console.WriteLine($"{user.Key} disconnected.");
             }
 
@@ -60,8 +70,25 @@ namespace SpagChat.API.SignalR
 
         public async Task JoinRoom(string chatRoomId)
         {
+            var userId = Context.GetHttpContext()?.Request?.Query["userId"].ToString();
+
+            if (string.IsNullOrEmpty(userId)) return;
+
             await Groups.AddToGroupAsync(Context.ConnectionId, chatRoomId);
+
+            lock (ChatRoomConnections)
+            {
+                if (!ChatRoomConnections.ContainsKey(chatRoomId))
+                {
+                    ChatRoomConnections[chatRoomId] = new HashSet<string>();
+                }
+
+                ChatRoomConnections[chatRoomId].Add(userId);
+            }
+
+            Console.WriteLine($"{userId} joined chat room {chatRoomId}");
         }
+
 
         public async Task LeaveRoom(string chatRoomId)
         {
@@ -90,15 +117,30 @@ namespace SpagChat.API.SignalR
             await Clients.All.SendAsync("ChatRoomUpdated", chatRoomId, newName);
         }
 
-        public async Task SendChatRoomCreated(ChatRoomDto chatRoom)
-        {
-            await Clients.All.SendAsync("ChatRoomCreated", chatRoom);
-        }
+        //public async Task SendChatRoomCreated(string connectionId, ChatRoomDto chatRoom)
+        //{
+        //    await Clients.Client(connectionId).SendAsync("ChatRoomCreated", chatRoom);
+        //}
 
         public async Task SendChatRoomDeleted(string chatRoomId)
         {
             await Clients.All.SendAsync("ChatRoomDeleted", chatRoomId);
         }
+
+        public async Task BroadcastOnlineUsers()
+        {
+            var onlineUserIds = OnlineUsers.Keys.ToList();
+            await Clients.All.SendAsync("OnlineUsersChanged", onlineUserIds);
+        }
+
+        public void LogGroupListeners(string chatRoomId)
+        {
+            if (ChatRoomConnections.TryGetValue(chatRoomId, out var userList))
+            {
+                Console.WriteLine($"Users listening to {chatRoomId}: {string.Join(", ", userList)}");
+            }
+        }
+
 
     }
 }

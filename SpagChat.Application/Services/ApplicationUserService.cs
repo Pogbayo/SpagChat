@@ -1,4 +1,5 @@
 ﻿using AutoMapper;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging;
 using SpagChat.Application.DTO.Auth;
@@ -21,7 +22,7 @@ namespace SpagChat.Application.Services
         private readonly IMapper _mapper;
         private readonly ICustomMemoryCache _cache;
         private readonly IChatRoomUserService _chatRoomUserService;
-        public ApplicationUserService(IChatRoomUserService chatRoomUserService,ICustomMemoryCache cache, IMapper mapper,ITokenGenerator tokenGenerator,ILogger<ApplicationUserService> logger, IEmailService emailService, IApplicationUserRepository applicationUserRepository)
+        public ApplicationUserService(IChatRoomUserService chatRoomUserService, ICustomMemoryCache cache, IMapper mapper, ITokenGenerator tokenGenerator, ILogger<ApplicationUserService> logger, IEmailService emailService, IApplicationUserRepository applicationUserRepository)
         {
             _chatRoomUserService = chatRoomUserService;
             _cache = cache;
@@ -42,7 +43,7 @@ namespace SpagChat.Application.Services
 
             string cacheKey = $"AllUsers_{numberOfUsers}";
 
-            if (!_cache.TryGetValue(cacheKey, out IEnumerable<ApplicationUserDto>? cachedUsers)) 
+            if (!_cache.TryGetValue(cacheKey, out IEnumerable<ApplicationUserDto>? cachedUsers))
             {
                 _logger.LogInformation("Cache not found, fetching users from database...");
 
@@ -181,7 +182,7 @@ namespace SpagChat.Application.Services
             if (result != null && result.Succeeded)
             {
                 await _chatRoomUserService.AddUsersToChatRoomAsync(
-                    Guid.Parse("42E088DE-97D6-459C-CD2D-08DDAB8890DF"),
+                    Guid.Parse("a32ede7a-7308-472c-6895-08ddb7b60cbc"),
                     new List<Guid> { user.Id }
                 );
 
@@ -193,6 +194,8 @@ namespace SpagChat.Application.Services
 
             _logger.LogError("User registration failed.");
             var error = result?.Errors?.FirstOrDefault()?.Description ?? "Unknown registration error.";
+            _logger.LogError("User registration failed: {Error}", error);
+
             return Result<Guid>.FailureResponse("Registration failed.", error);
         }
 
@@ -208,6 +211,53 @@ namespace SpagChat.Application.Services
                 return Result<bool>.SuccessResponse(true, "Users deleted successfully.");
 
             return Result<bool>.FailureResponse("No matching users found.");
+        }
+        public async Task<Result<bool>> UpdateUsernameAsync(Guid userId, string newUsername)
+        {
+            if (userId == Guid.Empty || string.IsNullOrWhiteSpace(newUsername))
+            {
+                _logger.LogWarning("Invalid user ID or new username.");
+                return Result<bool>.FailureResponse("Invalid input.", "User ID and new username are required.");
+            }
+
+            var existingByUsername = await _applicationUserRepository.FindByUsernameAsync(newUsername);
+            if (existingByUsername != null && existingByUsername.Id != userId)
+            {
+                _logger.LogWarning("Username already in use.");
+                return Result<bool>.FailureResponse("Update failed.", "Username is already taken.");
+            }
+
+            var result = await _applicationUserRepository.UpdateUsernameAsync(userId, newUsername);
+
+            if (result.Succeeded)
+            {
+                _cache.RemoveByPrefix("User_");
+                return Result<bool>.SuccessResponse(true, "Username updated successfully.");
+            }
+
+            var error = result.Errors.FirstOrDefault()?.Description ?? "Unknown error.";
+            _logger.LogError("Username update failed: {Error}", error);
+            return Result<bool>.FailureResponse("Username update failed.", error);
+        }
+
+        public async Task<Result<bool>> UpdatePasswordAsync(Guid userId, string currentPassword, string newPassword)
+        {
+            if (userId == Guid.Empty || string.IsNullOrWhiteSpace(currentPassword) || string.IsNullOrWhiteSpace(newPassword))
+            {
+                _logger.LogWarning("Invalid input for password update.");
+                return Result<bool>.FailureResponse("Invalid input.", "User ID, current password, and new password are required.");
+            }
+
+            var result = await _applicationUserRepository.UpdatePasswordAsync(userId, currentPassword, newPassword);
+
+            if (result.Succeeded)
+            {
+                return Result<bool>.SuccessResponse(true, "Password updated successfully.");
+            }
+
+            var error = result.Errors.FirstOrDefault()?.Description ?? "Unknown error.";
+            _logger.LogError("Password update failed: {Error}", error);
+            return Result<bool>.FailureResponse("Password update failed.", error);
         }
     }
 }

@@ -9,12 +9,13 @@ namespace SpagChat.Domain.Entities
         public Guid MessageId { get; set; } = Guid.NewGuid();
         public required string Content { get; set; }
         public DateTime Timestamp { get; set; }
-
+        public bool? isEdited { get; set; }
+        public bool? isDeleted { get; set; }
+        public List<Guid>? readBy { get; set; }
 
         [ForeignKey(nameof(ApplicationUser))]
         public required Guid SenderId { get; set; }
         public ApplicationUser Sender { get; set; } = default!;
-
 
         [ForeignKey(nameof(ChatRoom))]
         public  required Guid ChatRoomId { get; set; }

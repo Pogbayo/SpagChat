@@ -1,5 +1,4 @@
 ﻿using AutoMapper;
-using AutoMapper.Internal;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging;
 using SpagChat.Application.DTO.ChatRooms;
@@ -10,7 +9,6 @@ using SpagChat.Application.Interfaces.IServices;
 using SpagChat.Application.Result;
 using SpagChat.Domain.Entities;
 using System.Text.Json;
-using System.Xml;
 
 namespace SpagChat.Application.Services
 {
@@ -31,7 +29,13 @@ namespace SpagChat.Application.Services
             _logger = logger;
             _chatRoomRepository = chatRoomRepository;
         }
+        public async Task<bool> IsUserInChatRoom(Guid chatRoomId, Guid userId)
+        {
+            var chatRoom = await _chatRoomRepository.GetChatRoomWithUsersByIdAsync(chatRoomId);
+            if (chatRoom == null) return false;
 
+            return chatRoom.ChatRoomUsers!.Any(u => u.UserId == userId);
+        }
         public async Task<Result<bool>> ChatRoomExistsAsync(Guid chatRoomId)
         {
             if (chatRoomId == Guid.Empty)
@@ -49,7 +53,6 @@ namespace SpagChat.Application.Services
 
             return Result<bool>.SuccessResponse(true,"ChatRoom exists");
         }
-
         public async Task<Result<ChatRoomDto?>> CreateChatRoomAsync(CreateChatRoomDto createChatRoomDto)
         {
             if (createChatRoomDto.IsGroup  && string.IsNullOrWhiteSpace(createChatRoomDto.Name) )
@@ -66,11 +69,11 @@ namespace SpagChat.Application.Services
 
             _logger.LogInformation($"MemberIds count received: {createChatRoomDto.MemberIds?.Count}");
 
-            if (createChatRoomDto.IsGroup && createChatRoomDto!.MemberIds!.Count <= 2)
-            {
-                _logger.LogError("Group chats must have more than two members.");
-                return Result<ChatRoomDto?>.FailureResponse("Group chats must have more than two members.");
-            }
+            //if (createChatRoomDto.IsGroup && createChatRoomDto!.MemberIds!.Count <= 2)
+            //{
+            //    _logger.LogError("Group chats must have more than two members.");
+            //    return Result<ChatRoomDto?>.FailureResponse("Group chats must have more than two members.");
+            //}
 
             if (!createChatRoomDto.IsGroup && createChatRoomDto.MemberIds!.Count != 2)
             {
@@ -125,7 +128,6 @@ namespace SpagChat.Application.Services
 
             return Result<ChatRoomDto?>.SuccessResponse(entityToDto,"ChatRoom created successfully");
         }
-
         public async Task<Result<ChatRoomDto?>> GetPrivateChatAsync(List<Guid> memberIds)
         {
             if (memberIds == null || memberIds.Count != 2)
@@ -185,7 +187,6 @@ namespace SpagChat.Application.Services
             return Result<ChatRoomDto?>.SuccessResponse(entityToDto, "ChatRoom created successfully");
 
         }
-
         public async Task<Result<List<ChatRoomDto>>> GetChatRoomsUserIsNotInAsync(Guid currentUserId)
         {
             if (currentUserId == Guid.Empty)
@@ -230,25 +231,34 @@ namespace SpagChat.Application.Services
                 return Result<List<ChatRoomDto>>.FailureResponse("Failed to fetch chat rooms due to an error.");
             }
         }
-
         public async Task<Result<bool>> DeleteChatRoomAsync(Guid chatRoomId)
         {
             if (chatRoomId == Guid.Empty)
             {
-                _logger.LogError("Please provide an Id");
-                return Result<bool>.FailureResponse("Please provide an Id");
+                _logger.LogError("Please provide a chatroom Id");
+                return Result<bool>.FailureResponse("Please provide a chatroom Id");
             }
 
+            // 1. Get all user IDs in the chat room BEFORE deleting
+            var chatRoom = await _chatRoomRepository.GetChatRoomWithUsersByIdAsync(chatRoomId);
+            var userIds = chatRoom?.ChatRoomUsers?.Select(cru => cru.UserId).ToList() ?? new List<Guid>();
+
+            // 2. Delete the chat room (this will remove the room and all ChatRoomUser links)
             var result = await _chatRoomRepository.DeleteChatRoom(chatRoomId);
             if (!result)
             {
-                _logger.LogError("ChatRoom not deleted successfully");
-                return Result<bool>.FailureResponse("ChatRoom not deleted successfully");
+                _logger.LogError("Chatroom not deleted successfully");
+                return Result<bool>.FailureResponse("Chatroom not deleted successfully");
             }
 
-            return Result<bool>.SuccessResponse(true,"Chat Room deledted successfully.");
-        }
+            // 3. Clear the cache for all affected users
+            foreach (var userId in userIds)
+            {
+                _cache.Remove($"chatRoomRelatedToUser_{userId}");
+            }
 
+            return Result<bool>.SuccessResponse(true, "Chatroom deleted successfully.");
+        }
         public async Task<Result<ChatRoomDto?>> GetChatRoomByIdAsync(Guid chatRoomId)
         {
             if (chatRoomId == Guid.Empty)
@@ -297,7 +307,6 @@ namespace SpagChat.Application.Services
             _logger.LogInformation("Cache hit, returning cached chat room...");
             return Result<ChatRoomDto?>.SuccessResponse(cachedChatRoom, "Chat Room fetched successfully.");
         }
-
         public async Task<Result<ChatRoomDto?>> GetChatRoomByNameAsync(string chatRoomName)
         {
             if (string.IsNullOrWhiteSpace(chatRoomName))
@@ -347,7 +356,6 @@ namespace SpagChat.Application.Services
 
             return Result<ChatRoomDto?>.SuccessResponse(cachedChatRoom, "ChatRoom fetched successfully.");
         }
-
         public async Task<Result<List<ChatRoomDto>>> GetChatRoomRelatedToUserAsync(Guid UserId)
         {
             if (UserId == Guid.Empty)
@@ -402,19 +410,23 @@ namespace SpagChat.Application.Services
                     _logger.LogInformation($"ChatRoom {chatRoomDto.Name} has {chatRoomDto.Users.Count} users.");
                 }
 
+                // Sort chat rooms by LastMessageTimestamp descending (latest first)
+                chatRoomListDto = chatRoomListDto
+                    .OrderByDescending(cr => cr.LastMessageTimestamp ?? DateTime.MinValue)
+                    .ToList();
+
                 _logger.LogWarning("This is the chatRoomList: {ChatRoomList}", JsonSerializer.Serialize(chatRoomListDto, new JsonSerializerOptions { WriteIndented = true }));
 
                 cachedChatRoomList = chatRoomListDto;
 
                 _cache.Set(cacheKey, cachedChatRoomList, new MemoryCacheEntryOptions
                 {
-                    SlidingExpiration = TimeSpan.FromMinutes(5)
+                    SlidingExpiration = TimeSpan.FromMinutes(1)
                 });
             }
 
             return Result<List<ChatRoomDto>>.SuccessResponse(cachedChatRoomList!, "Chat rooms related to User");
         }
-
         public async Task<Result<bool>> UpdateChatRoomNameAsync(Guid chatRoomId, string newName)
         {
             if (chatRoomId == Guid.Empty)
@@ -442,7 +454,6 @@ namespace SpagChat.Application.Services
 
             return Result<bool>.SuccessResponse(true,"ChatRoom name updated successfully.");
         }
-
         public async Task<Result<List<Guid>>> GetChatRoomIdsForUserAsync(Guid userId)
         {
             if (userId == Guid.Empty)
@@ -489,6 +500,68 @@ namespace SpagChat.Application.Services
 
             return Result<List<Guid>>.SuccessResponse(cachedChatRoomIds!, "Chat room IDs fetched successfully.");
         }
+        public async Task<Result<int>> GetUnreadMessageCountAsync(Guid chatRoomId, Guid userId)
+        {
+            if (chatRoomId == Guid.Empty)
+            {
+                return Result<int>.FailureResponse("Please, provide a chat room id");
+            }
+            if (userId == Guid.Empty)
+            {
+                return Result<int>.FailureResponse("Please, provide a user id");
+            }
 
+            var chatRoom = _chatRoomRepository.GetChatRoomByIdAsync(chatRoomId);
+            if (chatRoom == null)
+            {
+                return Result<int>.FailureResponse("Chat room with provided id does not exist");
+            }
+            var user = _applicationUser.GetUserByIdAsync(userId);
+            if(user == null)
+            {
+                return Result<int>.FailureResponse("No user with provided id exists in our database");
+            }
+            var unreadMessagesCount = await _chatRoomRepository.GetUnreadMessageCountAsync(chatRoomId, userId);
+            if (unreadMessagesCount < 0)
+            {
+                return Result<int>.FailureResponse("Error occurred while counting unread messages");
+            }
+
+            return Result<int>.SuccessResponse(unreadMessagesCount);
+        }
+        public async Task<Result<bool>> MarkMessagesAsReadAsync(Guid chatRoomId, Guid userId)
+        {
+            if (chatRoomId == Guid.Empty)
+            {
+                return Result<bool>.FailureResponse("Please, provide a chat room id");
+            }
+
+            if (userId == Guid.Empty)
+            {
+                return Result<bool>.FailureResponse("Please, provide a user id");
+            }
+
+            var chatRoom = await _chatRoomRepository.GetChatRoomByIdAsync(chatRoomId);
+            if (chatRoom == null)
+            {
+                return Result<bool>.FailureResponse("Chat room with provided id does not exist");
+            }
+
+            var user = await _applicationUser.GetUserByIdAsync(userId);
+            if (user == null)
+            {
+                return Result<bool>.FailureResponse("No user with provided id exists in our database");
+            }
+
+            try
+            {
+                await _chatRoomRepository.MarkMessagesAsReadAsync(chatRoomId, userId);
+                return Result<bool>.SuccessResponse(true, "Messages marked as read successfully");
+            }
+            catch (Exception ex)
+            {
+                return Result<bool>.FailureResponse($"Error occurred while marking messages as read: {ex.Message}");
+            }
+        }
     }
 }

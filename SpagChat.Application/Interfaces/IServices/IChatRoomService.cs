@@ -12,8 +12,12 @@ namespace SpagChat.Application.Interfaces.IServices
         Task<Result<ChatRoomDto?>> GetChatRoomByIdAsync(Guid chatRoomId);
         Task<Result<ChatRoomDto?>> GetPrivateChatAsync(List<Guid> memberIds);
         Task<Result<List<Guid>>> GetChatRoomIdsForUserAsync(Guid userId);
+        Task<bool> IsUserInChatRoom(Guid chatRoomId, Guid userId);
         Task<Result<bool>> DeleteChatRoomAsync(Guid chatRoomId);
         Task<Result<bool>> ChatRoomExistsAsync(Guid chatRoomId);
+        Task<Result<int>> GetUnreadMessageCountAsync(Guid chatRoomId, Guid userId);
+        //Task<List<Message>> GetUnreadMessagesAsync(Guid chatRoomId, Guid userId);
+        Task<Result<bool>> MarkMessagesAsReadAsync(Guid chatRoomId, Guid userId);
         Task<Result<bool>> UpdateChatRoomNameAsync(Guid chatRoomId, string newName);
     }
 }

@@ -55,6 +55,23 @@ namespace SpagChat.Infrastructure.Repositories
             return await _userManager.FindByNameAsync(username);
         }
 
+        public async Task<IdentityResult> UpdateUsernameAsync(Guid userId, string newUsername)
+        {
+            var user = await _userManager.FindByIdAsync(userId.ToString());
+            if (user == null) return IdentityResult.Failed(new IdentityError { Description = "User not found." });
+
+            user.UserName = newUsername;
+            user.NormalizedUserName = newUsername.ToUpper();
+            return await _userManager.UpdateAsync(user);
+        }
+
+        public async Task<IdentityResult> UpdatePasswordAsync(Guid userId, string currentPassword, string newPassword)
+        {
+            var user = await _userManager.FindByIdAsync(userId.ToString());
+            if (user == null) return IdentityResult.Failed(new IdentityError { Description = "User not found." });
+
+            return await _userManager.ChangePasswordAsync(user, currentPassword, newPassword);
+        }
 
         public async Task<bool> DeleteUsersAsync(List<Guid> userIds, bool useParallel = false)
         {

@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.SignalR;
 using SpagChat.API.SignalR;
 using SpagChat.Application.DTO.Messages;
+using SpagChat.Application.Interfaces.ICache;
 using SpagChat.Application.Interfaces.IServices;
 
 [ApiController]
@@ -12,8 +13,11 @@ public class MessageController : ControllerBase
     private readonly IMessageService _messageService;
     private readonly IHubContext<ChatHub> _hubContext;
     private readonly ILogger<MessageController> _logger;
-    public MessageController(ILogger<MessageController> logger,IMessageService messageService, IHubContext<ChatHub> hubContext)
+    private readonly ICustomMemoryCache _cache;
+
+    public MessageController(ICustomMemoryCache cache,ILogger<MessageController> logger,IMessageService messageService, IHubContext<ChatHub> hubContext)
     {
+        _cache = cache;
         _logger = logger;
         _messageService = messageService;
         _hubContext = hubContext;
@@ -23,7 +27,7 @@ public class MessageController : ControllerBase
     [Authorize]
     public async Task<IActionResult> SendMessageAsync([FromBody] SendMessageDto messageDetails)
     {
-        _logger.LogInformation($"Sending message to chat room: {messageDetails.ChatRoomId}");
+        //_logger.LogInformation($"Sending message to chat room: {messageDetails.ChatRoomId}");
 
         var result = await _messageService.SendMessageAsync(messageDetails);
 
@@ -32,11 +36,11 @@ public class MessageController : ControllerBase
 
         await _hubContext.Clients.Group(messageDetails.ChatRoomId.ToString())
             .SendAsync("ReceiveMessage", result.Data);
-        if (result.Success && result.Data != null)
-        {
-            _logger.LogInformation(result.Data.ToString());
+        //if (result.Success && result.Data != null)
+        //{
+        //    _logger.LogInformation(result.Data.ToString());
 
-        }
+        //}
         return Ok(result);
     }
 
@@ -44,7 +48,8 @@ public class MessageController : ControllerBase
     [Authorize]
     public async Task<IActionResult> GetMessagesByChatRoomId(Guid chatRoomId)
     {
-        _logger.LogInformation("Route hit by client");
+        //_logger.LogInformation("Route hit by client");
+        //_cache.Remove($"ChatRoomMessages_{chatRoomId}");
         var result = await _messageService.GetMessagesByChatRoomIdAsync(chatRoomId);
 
         if (!result.Success)

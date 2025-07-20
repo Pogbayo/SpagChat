@@ -7,6 +7,7 @@ using SpagChat.Application.Interfaces.IRepositories;
 using SpagChat.Application.Interfaces.IServices;
 using SpagChat.Application.Result;
 using SpagChat.Domain.Entities;
+using System.Text.Json;
 
 namespace SpagChat.Application.Services
 {
@@ -34,17 +35,15 @@ namespace SpagChat.Application.Services
                 _logger.LogError("Message with provided id does not exist");
                 return Result<bool>.FailureResponse("Message with provided id does not exist");
             }
-
+            
             var result = await _messageRepository.DeleteAsync(messageId);
             if (!result)
             {
                 _logger.LogError("Message not deleted SuccessResponsefully");
                 return Result<bool>.FailureResponse("Message not deleted SuccessResponsefully");
             }
-
             return Result<bool>.SuccessResponse(true,"Message deleted succssfully");
         }
-
         public async Task<Result<bool>> EditMessageAsync(Guid messageId, string newContent)
         {
             if (messageId == Guid.Empty)
@@ -68,7 +67,6 @@ namespace SpagChat.Application.Services
 
             return Result<bool>.SuccessResponse(true, "Message edited successfully");
         }
-
         public async Task<Result<IEnumerable<MessageDto>>> GetMessagesByChatRoomIdAsync(Guid chatRoomId)
         {
             if (chatRoomId == Guid.Empty)
@@ -84,6 +82,8 @@ namespace SpagChat.Application.Services
                 _logger.LogInformation("Cache not found, retrieving from database...");
 
                 var messagesByChatroom = await _messageRepository.GetMessagesByChatRoomIdAsync(chatRoomId);
+                _logger.LogInformation("Raw messages from repository: {Count}", messagesByChatroom?.Count() ?? 0);
+
                 var mappedMessages = _mapper.Map<IEnumerable<MessageDto>>(messagesByChatroom);
 
                 if (mappedMessages == null)
@@ -104,9 +104,12 @@ namespace SpagChat.Application.Services
                 _logger.LogInformation("Cache hit, returning cached messages...");
             }
 
-            return Result<IEnumerable<MessageDto>>.SuccessResponse(cachedMessages, "Messages in chatRoom fecthed successfully.");
-        }
+            // Log the count of messages returned (whether from cache or DB)
+            int messageCount = cachedMessages?.Count() ?? 0;
+            _logger.LogInformation("Returning {Count} messages for chatRoom {ChatRoomId}", messageCount, chatRoomId);
 
+            return Result<IEnumerable<MessageDto>>.SuccessResponse(cachedMessages!, "Messages in chatRoom fetched successfully.");
+        }
         public async Task<Result<MessageDto>> SendMessageAsync(SendMessageDto messageDetails)
         {
             if (messageDetails.SenderId == Guid.Empty || messageDetails.ChatRoomId == Guid.Empty)
@@ -128,13 +131,11 @@ namespace SpagChat.Application.Services
                 return Result<MessageDto>.FailureResponse("ChatRoom does not exist", "Chat room with provided Id does not exist");
             }
 
-            var chatRoomDto = chatRoomResult.Data;
-            var existingUsers = chatRoomDto.Users.Select(u => u.Id).ToHashSet();
-
-            if (!existingUsers.Contains(messageDetails.SenderId))
+            var isInRoom = await _chatRoomService.IsUserInChatRoom(messageDetails.ChatRoomId, messageDetails.SenderId);
+            if (!isInRoom)
             {
                 _logger.LogWarning("User cannot send message to a group they are not in...");
-                return Result<MessageDto>.FailureResponse("User not in chatRoom", "Unauthorized");
+                return Result<MessageDto>.FailureResponse("Unauthorized");
             }
 
             var messageEntity = _mapper.Map<Message>(messageDetails);
@@ -143,10 +144,10 @@ namespace SpagChat.Application.Services
 
             messageDto.ChatRoomId = messageDetails.ChatRoomId;
 
-            string cacheKey = $"chatRoomById_{messageDetails.ChatRoomId}";
-            _cache.Remove(cacheKey);
-            _logger.LogInformation($"Cache invalidated for chat room: {cacheKey}","this is my messageDto", messageDto);
+            _cache.Remove($"ChatRoomMessages_{messageDetails.ChatRoomId}");
+            _cache.Remove($"chatRoomById_{messageDetails.ChatRoomId}");
 
+            //_logger.LogInformation($"Cache invalidated for chat room: {cacheKey}","this is my messageDto", messageDto);
 
             return Result<MessageDto>.SuccessResponse(messageDto, "Message sent successfully");
         }

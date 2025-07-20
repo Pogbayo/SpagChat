@@ -33,6 +33,12 @@ namespace SpagChat.Infrastructure.Repositories
 
             return exists;
         }
+        public async Task<ChatRoom?> GetChatRoomWithUsersByIdAsync(Guid chatRoomId)
+        {
+            return await _dbContext.ChatRooms
+                .Include(cr => cr.ChatRoomUsers)
+                .FirstOrDefaultAsync(cr => cr.ChatRoomId == chatRoomId);
+        }
 
         public async Task<ChatRoom?> CreateChatRoomAsync(ChatRoom chatRoom)
         {
@@ -69,6 +75,11 @@ namespace SpagChat.Infrastructure.Repositories
                 return false;
             }
 
+            if (chatRoomRecord.ChatRoomUsers != null && chatRoomRecord.ChatRoomUsers.Any())
+            {
+                _dbContext.ChatRoomUsers.RemoveRange(chatRoomRecord.ChatRoomUsers);
+            }
+
             _dbContext.ChatRooms.Remove(chatRoomRecord);
             await _dbContext.SaveChangesAsync();
 
@@ -86,23 +97,22 @@ namespace SpagChat.Infrastructure.Repositories
                     c.ChatRoomUsers.All(cru => memberIds.Contains(cru.UserId)));
         }
 
-
         public async Task<ChatRoom?> GetChatRoomByIdAsync(Guid chatRoomId)
         {
-            _logger.LogInformation($"Fetching chat room by name: {chatRoomId}");
+            //_logger.LogInformation($"Fetching chat room by name: {chatRoomId}");
             var chatRoomRecord = await _dbContext.ChatRooms
                 .Include(c => c.Messages)
                 .Include(c => c.ChatRoomUsers!)
                   .ThenInclude(cru => cru.User)
                 .FirstOrDefaultAsync(cr => cr.ChatRoomId == chatRoomId);
-            _logger.LogInformation($"Number of messages in chat room: {chatRoomRecord!.Messages?.Count}");
-            if (chatRoomRecord?.Messages != null)
-            {
-                foreach (var msg in chatRoomRecord.Messages)
-                {
-                    _logger.LogInformation($"Message: {msg.Content}, Timestamp: {msg.Timestamp}");
-                }
-            }
+            //_logger.LogInformation($"Number of messages in chat room: {chatRoomRecord!.Messages?.Count}");
+            //if (chatRoomRecord?.Messages != null)
+            //{
+            //    foreach (var msg in chatRoomRecord.Messages)
+            //    {
+            //        _logger.LogInformation($"Message: {msg.Content}, Timestamp: {msg.Timestamp}");
+            //    }
+            //}
             return chatRoomRecord;
         }
 
@@ -127,14 +137,14 @@ namespace SpagChat.Infrastructure.Repositories
 
         public async Task<List<ChatRoom>> GetChatRoomRelatedToUserAsync(Guid UserId)
         {
-            _logger.LogInformation($"Fetching chat rooms for user ID: {UserId}");
+            //_logger.LogInformation($"Fetching chat rooms for user ID: {UserId}");
             var chatRooms = await _dbContext.ChatRooms
                 .Where(cr => cr.ChatRoomUsers != null && cr.ChatRoomUsers.Any(cu => cu.UserId == UserId))
                 .Include(cr => cr.Messages)
                 .Include(cr => cr.ChatRoomUsers!)
                 .ThenInclude(cu => cu!.User)
                 .ToListAsync();
-            _logger.LogInformation($"Found {chatRooms.Count} chat rooms for user ID {UserId}");
+            //_logger.LogInformation($"Found {chatRooms.Count} chat rooms for user ID {UserId}");
             return chatRooms;
         }
 
@@ -159,6 +169,32 @@ namespace SpagChat.Infrastructure.Repositories
                 .Where(cu => cu.UserId == userId)
                 .Select(cu => cu.ChatRoomId)
                 .ToListAsync();
+        }
+
+        public async Task<int> GetUnreadMessageCountAsync(Guid chatRoomId, Guid userId)
+        {
+            var unReadMessagesCount = await _dbContext.Messages
+                .Where(m => m.ChatRoomId == chatRoomId && (m.readBy == null || !m.readBy.Contains(userId)))
+                .ToListAsync();
+
+            return unReadMessagesCount.Count;
+        }
+
+        public async Task MarkMessagesAsReadAsync(Guid chatRoomId, Guid userId)
+        {
+            var unreadMessages = await _dbContext.Messages
+                .Where(m => m.ChatRoomId == chatRoomId &&
+                           (m.readBy == null || !m.readBy.Contains(userId)))
+                .ToListAsync();
+
+            foreach (var message in unreadMessages)
+            {
+                if (message == null || message.readBy!.Any())
+                {
+                    return;
+                }
+                message.readBy!.Add(userId);
+            }
         }
     }
 }

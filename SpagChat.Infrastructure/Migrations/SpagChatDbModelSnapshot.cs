@@ -291,6 +291,15 @@ namespace SpagChat.Infrastructure.Migrations
                     b.Property<DateTime>("Timestamp")
                         .HasColumnType("datetime2");
 
+                    b.Property<bool?>("isDeleted")
+                        .HasColumnType("bit");
+
+                    b.Property<bool?>("isEdited")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("readBy")
+                        .HasColumnType("nvarchar(max)");
+
                     b.HasKey("MessageId");
 
                     b.HasIndex("ChatRoomId");

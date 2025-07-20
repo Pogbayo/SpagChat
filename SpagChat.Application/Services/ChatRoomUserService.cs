@@ -162,9 +162,6 @@ namespace SpagChat.Application.Services
             }
         }
 
-
-
-
         public async Task<Result<string>> RemoveUserFromChatRoomAsync(RemoveUserFromChatRoomDto userDetails)
         {
             if (userDetails.UserId == Guid.Empty || userDetails.ChatRoomId == Guid.Empty)

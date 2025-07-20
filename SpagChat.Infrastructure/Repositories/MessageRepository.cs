@@ -31,6 +31,7 @@ namespace SpagChat.Infrastructure.Repositories
                 _logger.LogWarning("Message with id does not exist");
                 return false;
             }
+             message.isDeleted = true;
             _dbContext.Messages.Remove(message);
             var result = await _dbContext.SaveChangesAsync();
             return result > 0;
@@ -49,9 +50,16 @@ namespace SpagChat.Infrastructure.Repositories
                 _logger.LogWarning("Message with id does not exist");
                 return false;
             }
+            message.isEdited = true;
             message.Content = newContent;
             var result = await _dbContext.SaveChangesAsync();
             return result > 0;
+        }
+
+        public async Task<Message> GetMessageByIdAsync(Guid messageId)
+        {
+            var message = await _dbContext.Messages.FindAsync(messageId);            //if (message != null) 
+            return message!;
         }
 
         public async Task<IEnumerable<Message>?> GetMessagesByChatRoomIdAsync(Guid chatRoomId)

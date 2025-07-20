@@ -9,5 +9,6 @@ namespace SpagChat.Application.Interfaces.IServices
         Task<Result<IEnumerable<MessageDto>>> GetMessagesByChatRoomIdAsync(Guid chatRoomId);
         Task<Result<bool>> DeleteAsync(Guid MessageId);
         Task<Result<bool>> EditMessageAsync(Guid MessageId, string newContent);
+        //Task<Result<MessageDto>> GetMessageByIdasync(Guid messageId);
     }
 }

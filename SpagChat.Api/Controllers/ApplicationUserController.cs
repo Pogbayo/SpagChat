@@ -77,5 +77,34 @@ namespace SpagChat.API.Controllers
 
             return BadRequest(result);
         }
+
+        [HttpPut("update-username")]
+        [Authorize]
+        public async Task<IActionResult> UpdateUsername([FromBody] UpdateUsernameDto dto)
+        {
+            var result = await _applicationUserService.UpdateUsernameAsync(dto.UserId, dto.NewUsername);
+
+            if (result.Success)
+            {
+                if (ChatHub.OnlineUsers.TryGetValue(dto.UserId.ToString(), out var connectionId))
+                {
+                    await _hub.Clients.Client(connectionId).SendAsync("UsernameChanged", dto.UserId, dto.NewUsername);
+                }
+
+                return Ok(result);
+            }
+
+            return BadRequest(result);
+        }
+
+        [HttpPut("update-password")]
+        [Authorize]
+        public async Task<IActionResult> UpdatePassword([FromBody] UpdatePasswordDto dto)
+        {
+            var result = await _applicationUserService.UpdatePasswordAsync(dto.UserId, dto.CurrentPassword, dto.NewPassword);
+            if (result.Success)
+                return Ok(result);
+            return BadRequest(result);
+        }
     }
 }

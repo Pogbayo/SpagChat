@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.SignalR;
 using SpagChat.API.SignalR;
 using SpagChat.Application.DTO.ChatRooms;
+using SpagChat.Application.DTO.Messages;
 using SpagChat.Application.Interfaces.IServices;
 using SpagChat.Application.Services;
 using SpagChat.Domain.Entities;
@@ -30,14 +31,17 @@ namespace SpagChat.API.Controllers
         public async Task<IActionResult> CreateChatRoom([FromBody] CreateChatRoomDto createChatRoomDto)
         {
             var result = await _chatRoomService.CreateChatRoomAsync(createChatRoomDto);
+
             if (!result.Success)
                 return BadRequest(result);
 
-            await _hubContext.Clients.All.SendAsync("ChatRoomCreated", result.Data);
+            var memberIds = createChatRoomDto.MemberIds!.Select(id => id.ToString()).ToList();
+
+            await _hubContext.Clients.Users(memberIds)
+                .SendAsync("ChatRoomCreated", result.Data);
 
             return CreatedAtAction(nameof(GetChatRoomById), new { chatRoomId = result.Data!.ChatRoomId }, result);
         }
-
 
         [HttpDelete("{chatRoomId}")]
         [Authorize]
@@ -52,7 +56,47 @@ namespace SpagChat.API.Controllers
             return Ok(result);
         }
 
-     
+        [HttpGet("unread-count/{chatRoomId}")]
+        [Authorize]
+        public async Task<IActionResult> GetUnreadMessageCount(Guid chatRoomId, Guid userId)
+        {
+                if (chatRoomId == Guid.Empty)
+                {
+                    return BadRequest(new { success = false, message = "Invalid chat room ID" });
+                }
+
+                if (userId == Guid.Empty)
+                {
+                    return BadRequest(new { success = false, message = "Invalid user ID" });
+                }
+
+                var result = await _chatRoomService.GetUnreadMessageCountAsync(chatRoomId, userId);
+
+                if (result.Success)
+                    return Ok(result);
+                
+                return BadRequest(result);
+        }
+
+        [HttpPost("mark-as-read")]
+        [Authorize]
+        public async Task<IActionResult> MarkMessagesAsRead([FromBody] MarkAsReadRequest request)
+        {
+            if (!ModelState.IsValid)
+                {
+                    return BadRequest(ModelState);
+                }
+
+           var result = await _chatRoomService.MarkMessagesAsReadAsync(request.ChatRoomId, request.UserId);
+
+             if (result.Success)
+                {
+                    return Ok(result);
+                }
+
+                return BadRequest(result);
+         }
+       
         [HttpGet("{chatRoomId}")]
         [Authorize]
         public async Task<IActionResult> GetChatRoomById(Guid chatRoomId)
@@ -64,8 +108,7 @@ namespace SpagChat.API.Controllers
 
             return Ok(result);
         }
-
-      
+ 
         [HttpGet("by-name/{chatRoomName}")]
         [Authorize]
         public async Task<IActionResult> GetChatRoomByName(string chatRoomName)
@@ -78,7 +121,6 @@ namespace SpagChat.API.Controllers
             return Ok(result);
         }
 
-
         [HttpGet("user/{userId}")]
         [Authorize]
         public async Task<IActionResult> GetChatRoomsRelatedToUser(Guid userId)
@@ -90,8 +132,7 @@ namespace SpagChat.API.Controllers
 
             return Ok(result);
         }
-
-       
+      
         [HttpPatch("{chatRoomId}/name")]
         [Authorize]
         public async Task<IActionResult> UpdateChatRoomName(Guid chatRoomId, [FromQuery] string newName)
@@ -104,7 +145,6 @@ namespace SpagChat.API.Controllers
 
             return Ok(result);
         }
-
 
         [HttpGet("{chatRoomId}/exists")]
         [Authorize]
@@ -132,8 +172,28 @@ namespace SpagChat.API.Controllers
 
             if (!result.Success)
                 return NotFound(result);
+            foreach (var user in result.Data!.Users)
+            {
+                if (ChatHub.OnlineUsers.TryGetValue(user.Id.ToString(), out var connectionId))
+                {
+                    await _hubContext.Clients.Client(connectionId)
+                        .SendAsync("ChatRoomCreated", result.Data);
+                }
+            }
 
             return Ok(result);
+        }
+
+        [Authorize]
+        [HttpGet("chatroomsids/{userId}")]
+        public async Task<IActionResult> GetUserChatRoomsIds(Guid userId)
+        {
+            var result = await _chatRoomService.GetChatRoomIdsForUserAsync(userId);
+            if (result.Success && result.Data != null)
+            {
+                return Ok(result.Data);
+            }
+            return BadRequest(result.Message);
         }
 
         [HttpGet("not-in/{userId}")]
