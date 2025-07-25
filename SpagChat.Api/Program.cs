@@ -17,6 +17,7 @@ using SpagChat.Infrastructure.Persistence;
 using SpagChat.Infrastructure.Repositories;
 using SpagChat.Infrastructure.TokenService;
 using System.Text;
+using System.Text.Json.Serialization;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -87,6 +88,11 @@ builder.Services.AddAutoMapper(AppDomain.CurrentDomain.GetAssemblies());
 builder.Services.AddSingleton<ICustomMemoryCache, CustomMemoryCache>();
 
 builder.Services.Configure<JwtSetting>(builder.Configuration.GetSection("Jwt"));
+
+builder.Services.ConfigureHttpJsonOptions(options =>
+{
+    options.SerializerOptions.ReferenceHandler = ReferenceHandler.IgnoreCycles;
+});
 
 builder.Services.AddAuthentication(options =>
 {

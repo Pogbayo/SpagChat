@@ -1,4 +1,5 @@
 ﻿using SpagChat.Application.DTO.Users;
+using SpagChat.Domain.Entities;
 
 namespace SpagChat.Application.DTO.Messages
 {
@@ -9,8 +10,8 @@ namespace SpagChat.Application.DTO.Messages
         public required ApplicationUserDto Sender { get; set; }
         public required string Content { get; set; }
         public DateTime Timestamp { get; set; } = DateTime.UtcNow;
-        public required bool isEdited { get; set; }
-        public required bool isDeleted { get; set; }
-        public required List<Guid> readby { get; set; }
+        public required bool IsEdited { get; set; }
+        public required bool IsDeleted { get; set; }
+        public required List<MessageReadByDto> ReadByUsers { get; set; }
     }
 }

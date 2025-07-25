@@ -500,62 +500,44 @@ namespace SpagChat.Application.Services
 
             return Result<List<Guid>>.SuccessResponse(cachedChatRoomIds!, "Chat room IDs fetched successfully.");
         }
-        public async Task<Result<int>> GetUnreadMessageCountAsync(Guid chatRoomId, Guid userId)
+        public async Task<Result<Dictionary<Guid,int>>> GetUnreadMessageCountAsync( Guid userId)
         {
-            if (chatRoomId == Guid.Empty)
-            {
-                return Result<int>.FailureResponse("Please, provide a chat room id");
-            }
             if (userId == Guid.Empty)
-            {
-                return Result<int>.FailureResponse("Please, provide a user id");
-            }
+                return Result<Dictionary<Guid, int>>.FailureResponse("Invalid user ID");
 
-            var chatRoom = _chatRoomRepository.GetChatRoomByIdAsync(chatRoomId);
-            if (chatRoom == null)
-            {
-                return Result<int>.FailureResponse("Chat room with provided id does not exist");
-            }
-            var user = _applicationUser.GetUserByIdAsync(userId);
-            if(user == null)
-            {
-                return Result<int>.FailureResponse("No user with provided id exists in our database");
-            }
-            var unreadMessagesCount = await _chatRoomRepository.GetUnreadMessageCountAsync(chatRoomId, userId);
-            if (unreadMessagesCount < 0)
-            {
-                return Result<int>.FailureResponse("Error occurred while counting unread messages");
-            }
+            var chatRooms = await _chatRoomRepository.GetChatRoomRelatedToUserAsync(userId);
+            if (chatRooms == null)
+                return Result<Dictionary<Guid, int>>.SuccessResponse(new Dictionary<Guid, int>());
 
-            return Result<int>.SuccessResponse(unreadMessagesCount);
+            var result = new Dictionary<Guid, int>();
+            foreach (var room in chatRooms)
+            {
+                var count = await _chatRoomRepository.GetUnreadMessageCountAsync(room.ChatRoomId, userId);
+                result[room.ChatRoomId] = count;
+            }
+            return Result<Dictionary<Guid, int>>.SuccessResponse(result);
         }
-        public async Task<Result<bool>> MarkMessagesAsReadAsync(Guid chatRoomId, Guid userId)
+        public async Task<Result<bool>> MarkMessagesAsReadAsync(List<Guid> messageIds, Guid userId)
         {
-            if (chatRoomId == Guid.Empty)
+            if (messageIds == null || !messageIds.Any())
             {
-                return Result<bool>.FailureResponse("Please, provide a chat room id");
+                return Result<bool>.FailureResponse("Please, provide at least one message id.");
             }
 
             if (userId == Guid.Empty)
             {
-                return Result<bool>.FailureResponse("Please, provide a user id");
-            }
-
-            var chatRoom = await _chatRoomRepository.GetChatRoomByIdAsync(chatRoomId);
-            if (chatRoom == null)
-            {
-                return Result<bool>.FailureResponse("Chat room with provided id does not exist");
+                return Result<bool>.FailureResponse("Please, provide a user id.");
             }
 
             var user = await _applicationUser.GetUserByIdAsync(userId);
             if (user == null)
             {
-                return Result<bool>.FailureResponse("No user with provided id exists in our database");
+                return Result<bool>.FailureResponse("No user with provided id exists in our database.");
             }
 
             try
             {
-                await _chatRoomRepository.MarkMessagesAsReadAsync(chatRoomId, userId);
+                await _chatRoomRepository.MarkMessagesAsReadAsync(messageIds, userId);
                 return Result<bool>.SuccessResponse(true, "Messages marked as read successfully");
             }
             catch (Exception ex)

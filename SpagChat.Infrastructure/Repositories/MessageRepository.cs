@@ -31,12 +31,11 @@ namespace SpagChat.Infrastructure.Repositories
                 _logger.LogWarning("Message with id does not exist");
                 return false;
             }
-             message.isDeleted = true;
-            _dbContext.Messages.Remove(message);
+             message.IsDeleted = true;
+            //_dbContext.Messages.Remove(message);
             var result = await _dbContext.SaveChangesAsync();
             return result > 0;
         }
-
         public async Task<bool> EditMessageAsync(Guid MessageId, string newContent)
         {
             if (MessageId == Guid.Empty)
@@ -50,34 +49,78 @@ namespace SpagChat.Infrastructure.Repositories
                 _logger.LogWarning("Message with id does not exist");
                 return false;
             }
-            message.isEdited = true;
+            message.IsEdited = true;
             message.Content = newContent;
             var result = await _dbContext.SaveChangesAsync();
             return result > 0;
         }
-
         public async Task<Message> GetMessageByIdAsync(Guid messageId)
         {
             var message = await _dbContext.Messages.FindAsync(messageId);            //if (message != null) 
             return message!;
         }
-
+        public async Task AddMessageReadByAsync(Guid messageId, Guid userId)
+        {
+            var messageReadBy = new MessageReadBy
+            {
+                MessageId = messageId,
+                UserId = userId,
+                ReadAt = DateTime.UtcNow
+            };
+            _dbContext.MessageReadBy.Add(messageReadBy);
+            await _dbContext.SaveChangesAsync();
+        }
         public async Task<IEnumerable<Message>?> GetMessagesByChatRoomIdAsync(Guid chatRoomId)
         {
-            var chatRoom = await _dbContext.ChatRooms
-                .Include(cr => cr.Messages!)
-                 .ThenInclude(m => m.Sender)
-                .FirstOrDefaultAsync(cr => cr.ChatRoomId == chatRoomId);
+            _logger.LogInformation("Heloeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee");
+            var messages = await _dbContext.Messages
+              .Where(m => m.ChatRoomId == chatRoomId && !m.IsDeleted)
+              .Include(m => m.Sender)
+              .Include(m => m.ReadBy)
+              .OrderBy(m => m.Timestamp)
+              .ToListAsync();
 
-            if (chatRoom == null)
-            {
-                _logger.LogError("ChatRoom does not have any message");
-                return null;
-            }
-
-            _logger.LogInformation("ChatRoom messages logged out successfully");
-            return chatRoom.Messages;
+            _logger.LogInformation($"Found {messages.Count} messages for chatRoom {chatRoomId}");
+            return messages;
         }
+
+        //public async Task<IEnumerable<Message>?> GetMessagesByChatRoomIdAsync(Guid chatRoomId)
+        //{
+        //    _logger.LogInformation($"Searching for ChatRoomId: {chatRoomId} (ToString: '{chatRoomId}')");
+
+        //    // Log the total count first
+        //    var totalMessages = await _dbContext.Messages
+        //        .Where(m => m.ChatRoomId == chatRoomId)
+        //        .CountAsync();
+        //    _logger.LogInformation($"Total messages for chatRoom {chatRoomId}: {totalMessages}");
+
+        //    // Log how many are deleted
+        //    var deletedMessages = await _dbContext.Messages
+        //        .Where(m => m.ChatRoomId == chatRoomId && m.IsDeleted)
+        //        .CountAsync();
+        //    _logger.LogInformation($"Deleted messages for chatRoom {chatRoomId}: {deletedMessages}");
+
+        //    // Your original query
+        //    var messages = await _dbContext.Messages
+        //        .Where(m => m.ChatRoomId == chatRoomId && !m.IsDeleted)
+        //        .Include(m => m.Sender)
+        //        .Include(m => m.ReadBy)
+        //        .OrderBy(m => m.Timestamp)
+        //        .ToListAsync();
+
+        //    _logger.LogInformation($"Final result: {messages.Count} messages");
+
+        //    if (!messages.Any())
+        //    {
+        //        _logger.LogError("ChatRoom does not have any message");
+        //    }
+        //    else
+        //    {
+        //        _logger.LogInformation("ChatRoom messages logged out successfully");
+        //    }
+
+        //    return messages;
+        //}
 
         public async Task<Message?> SendMessageAsync(Message messageDetails)
         {

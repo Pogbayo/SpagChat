@@ -32,7 +32,6 @@ namespace SpagChat.Application.Services
             _emailService = emailService;
             _applicationUserRepository = applicationUserRepository;
         }
-
         public async Task<Result<IEnumerable<ApplicationUserDto>?>> GetAllUsersAsync(int numberOfUsers)
         {
             if (numberOfUsers <= 0)
@@ -72,8 +71,6 @@ namespace SpagChat.Application.Services
 
             return Result<IEnumerable<ApplicationUserDto>?>.SuccessResponse(cachedUsers!, "Users fetched successfully.");
         }
-
-
         public async Task<Result<ApplicationUserDto>> GetUserByIdAsync(Guid userId)
         {
             if (userId == Guid.Empty)
@@ -112,8 +109,6 @@ namespace SpagChat.Application.Services
 
             return Result<ApplicationUserDto>.SuccessResponse(cachedUser!, "User fetched successfully.");
         }
-
-
         public async Task<Result<LoginResponseDto>> LoginAsync(LoginUserDto userDetails)
         {
             if (string.IsNullOrWhiteSpace(userDetails.Email) || string.IsNullOrWhiteSpace(userDetails.Password))
@@ -147,8 +142,6 @@ namespace SpagChat.Application.Services
             _logger.LogInformation($"This is the user details,{mappedUser}");
             return Result<LoginResponseDto>.SuccessResponse(newObject, "Login successful.");
         }
-
-
         public async Task<Result<Guid>> RegisterUserAsync(CreateUserDto userdetails)
         {
             if (string.IsNullOrWhiteSpace(userdetails.Email) || string.IsNullOrWhiteSpace(userdetails.Password))
@@ -198,8 +191,6 @@ namespace SpagChat.Application.Services
 
             return Result<Guid>.FailureResponse("Registration failed.", error);
         }
-
-
         public async Task<Result<bool>> DeleteUsersAsync(List<Guid> userIds, bool useParallel = false)
         {
             if (userIds == null || !userIds.Any())
@@ -239,7 +230,6 @@ namespace SpagChat.Application.Services
             _logger.LogError("Username update failed: {Error}", error);
             return Result<bool>.FailureResponse("Username update failed.", error);
         }
-
         public async Task<Result<bool>> UpdatePasswordAsync(Guid userId, string currentPassword, string newPassword)
         {
             if (userId == Guid.Empty || string.IsNullOrWhiteSpace(currentPassword) || string.IsNullOrWhiteSpace(newPassword))

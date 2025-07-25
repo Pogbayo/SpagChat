@@ -16,7 +16,6 @@ namespace SpagChat.Infrastructure.Repositories
             _logger = logger;
             _dbContext = context;
         }
-
         public async Task<bool> ChatRoomExistsAsync(Guid chatRoomId)
         {
             if (chatRoomId == Guid.Empty)
@@ -173,27 +172,34 @@ namespace SpagChat.Infrastructure.Repositories
 
         public async Task<int> GetUnreadMessageCountAsync(Guid chatRoomId, Guid userId)
         {
-            var unReadMessagesCount = await _dbContext.Messages
-                .Where(m => m.ChatRoomId == chatRoomId && (m.readBy == null || !m.readBy.Contains(userId)))
-                .ToListAsync();
+            var unreadCount = await _dbContext.Messages
+             .Where(m => m.ChatRoomId == chatRoomId)
+             .Where(m => !_dbContext.MessageReadBy.Any(mrb => mrb.MessageId == m.MessageId && mrb.UserId == userId))
+             .CountAsync();
 
-            return unReadMessagesCount.Count;
+            return unreadCount;
         }
 
-        public async Task MarkMessagesAsReadAsync(Guid chatRoomId, Guid userId)
+        public async Task MarkMessagesAsReadAsync(List<Guid> messageIds, Guid userId)
         {
-            var unreadMessages = await _dbContext.Messages
-                .Where(m => m.ChatRoomId == chatRoomId &&
-                           (m.readBy == null || !m.readBy.Contains(userId)))
+            var now = DateTime.UtcNow;
+            var alreadyRead = await _dbContext.MessageReadBy
+                .Where(mrb => messageIds.Contains(mrb.MessageId) && mrb.UserId == userId)
+                .Select(mrb => mrb.MessageId)
                 .ToListAsync();
 
-            foreach (var message in unreadMessages)
-            {
-                if (message == null || message.readBy!.Any())
+            var toInsert = messageIds.Except(alreadyRead)
+                .Select(msgId => new MessageReadBy
                 {
-                    return;
-                }
-                message.readBy!.Add(userId);
+                    MessageId = msgId,
+                    UserId = userId,
+                    ReadAt = now
+                }).ToList();
+
+            if (toInsert.Any())
+            {
+                _dbContext.MessageReadBy.AddRange(toInsert);
+                await _dbContext.SaveChangesAsync();
             }
         }
     }

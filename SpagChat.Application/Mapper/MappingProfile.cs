@@ -44,12 +44,17 @@ namespace SpagChat.Application.Common.Mappings
 
             // Message -> MessageDto
             CreateMap<Message, MessageDto>()
-                .ForMember(dest => dest.Sender, opt => opt.MapFrom(src => src.Sender))
-                  .ForMember(dest => dest.isEdited, opt => opt.MapFrom(src => src.isDeleted))
-    .            ForMember(dest => dest.isDeleted, opt => opt.MapFrom(src => src.isDeleted))
-                  .ForMember(dest => dest.readby, opt => opt.MapFrom(src => src.readBy));
+              .ForMember(dest => dest.Sender, opt => opt.MapFrom(src => src.Sender))
+              .ForMember(dest => dest.IsEdited, opt => opt.MapFrom(src => src.IsEdited))
+              .ForMember(dest => dest.IsDeleted, opt => opt.MapFrom(src => src.IsDeleted))
+              .ForMember(dest => dest.ReadByUsers, opt => opt.MapFrom(src => src.ReadBy));  // ← Changed this
 
-            // SendMessageDto -> Message
+            // MessageReadBy -> MessageReadByDto
+            CreateMap<MessageReadBy, MessageReadByDto>()
+                .ForMember(dest => dest.UserId, opt => opt.MapFrom(src => src.UserId))
+                .ForMember(dest => dest.Username, opt => opt.MapFrom(src => src.User!.UserName))
+                .ForMember(dest => dest.ReadAt, opt => opt.MapFrom(src => src.ReadAt));
+
             CreateMap<SendMessageDto, Message>();
 
             // CreateChatRoomDto -> ChatRoom

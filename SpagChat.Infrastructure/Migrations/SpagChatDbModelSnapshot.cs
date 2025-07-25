@@ -285,20 +285,17 @@ namespace SpagChat.Infrastructure.Migrations
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("IsEdited")
+                        .HasColumnType("bit");
+
                     b.Property<Guid>("SenderId")
                         .HasColumnType("uniqueidentifier");
 
                     b.Property<DateTime>("Timestamp")
                         .HasColumnType("datetime2");
-
-                    b.Property<bool?>("isDeleted")
-                        .HasColumnType("bit");
-
-                    b.Property<bool?>("isEdited")
-                        .HasColumnType("bit");
-
-                    b.Property<string>("readBy")
-                        .HasColumnType("nvarchar(max)");
 
                     b.HasKey("MessageId");
 
@@ -307,6 +304,24 @@ namespace SpagChat.Infrastructure.Migrations
                     b.HasIndex("SenderId");
 
                     b.ToTable("Messages");
+                });
+
+            modelBuilder.Entity("SpagChat.Domain.Entities.MessageReadBy", b =>
+                {
+                    b.Property<Guid>("MessageId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("ReadAt")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("MessageId", "UserId");
+
+                    b.HasIndex("UserId");
+
+                    b.ToTable("MessageReadBy");
                 });
 
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityRoleClaim<System.Guid>", b =>
@@ -398,6 +413,25 @@ namespace SpagChat.Infrastructure.Migrations
                     b.Navigation("Sender");
                 });
 
+            modelBuilder.Entity("SpagChat.Domain.Entities.MessageReadBy", b =>
+                {
+                    b.HasOne("SpagChat.Domain.Entities.Message", "Message")
+                        .WithMany("ReadBy")
+                        .HasForeignKey("MessageId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("SpagChat.Domain.Entities.ApplicationUser", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Message");
+
+                    b.Navigation("User");
+                });
+
             modelBuilder.Entity("SpagChat.Domain.Entities.ApplicationUser", b =>
                 {
                     b.Navigation("ChatRoomUsers");
@@ -410,6 +444,11 @@ namespace SpagChat.Infrastructure.Migrations
                     b.Navigation("ChatRoomUsers");
 
                     b.Navigation("Messages");
+                });
+
+            modelBuilder.Entity("SpagChat.Domain.Entities.Message", b =>
+                {
+                    b.Navigation("ReadBy");
                 });
 #pragma warning restore 612, 618
         }

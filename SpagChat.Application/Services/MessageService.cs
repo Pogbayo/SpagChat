@@ -140,14 +140,18 @@ namespace SpagChat.Application.Services
 
             var messageEntity = _mapper.Map<Message>(messageDetails);
             var savedMessage = await _messageRepository.SendMessageAsync(messageEntity);
-            var messageDto = _mapper.Map<MessageDto>(savedMessage);
 
+            if (savedMessage == null)
+            {
+                return Result<MessageDto>.FailureResponse("Error sending message..");
+            }
+            await _messageRepository.AddMessageReadByAsync(savedMessage.MessageId, messageDetails.SenderId);
+
+            var messageDto = _mapper.Map<MessageDto>(savedMessage);
             messageDto.ChatRoomId = messageDetails.ChatRoomId;
 
             _cache.Remove($"ChatRoomMessages_{messageDetails.ChatRoomId}");
             _cache.Remove($"chatRoomById_{messageDetails.ChatRoomId}");
-
-            //_logger.LogInformation($"Cache invalidated for chat room: {cacheKey}","this is my messageDto", messageDto);
 
             return Result<MessageDto>.SuccessResponse(messageDto, "Message sent successfully");
         }

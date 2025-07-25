@@ -5,8 +5,6 @@ using SpagChat.API.SignalR;
 using SpagChat.Application.DTO.ChatRooms;
 using SpagChat.Application.DTO.Messages;
 using SpagChat.Application.Interfaces.IServices;
-using SpagChat.Application.Services;
-using SpagChat.Domain.Entities;
 
 namespace SpagChat.API.Controllers
 {
@@ -56,25 +54,17 @@ namespace SpagChat.API.Controllers
             return Ok(result);
         }
 
-        [HttpGet("unread-count/{chatRoomId}")]
+        [HttpGet("unread-counts")]
         [Authorize]
-        public async Task<IActionResult> GetUnreadMessageCount(Guid chatRoomId, Guid userId)
+        public async Task<IActionResult> GetUnreadMessageCount([FromQuery] Guid userId)
         {
-                if (chatRoomId == Guid.Empty)
-                {
-                    return BadRequest(new { success = false, message = "Invalid chat room ID" });
-                }
 
                 if (userId == Guid.Empty)
-                {
                     return BadRequest(new { success = false, message = "Invalid user ID" });
-                }
-
-                var result = await _chatRoomService.GetUnreadMessageCountAsync(chatRoomId, userId);
-
+               
+                var result = await _chatRoomService.GetUnreadMessageCountAsync(userId);
                 if (result.Success)
                     return Ok(result);
-                
                 return BadRequest(result);
         }
 
@@ -87,7 +77,7 @@ namespace SpagChat.API.Controllers
                     return BadRequest(ModelState);
                 }
 
-           var result = await _chatRoomService.MarkMessagesAsReadAsync(request.ChatRoomId, request.UserId);
+           var result = await _chatRoomService.MarkMessagesAsReadAsync(request.messageIds, request.UserId);
 
              if (result.Success)
                 {

@@ -5,6 +5,7 @@ using SpagChat.API.SignalR;
 using SpagChat.Application.DTO.Messages;
 using SpagChat.Application.Interfaces.ICache;
 using SpagChat.Application.Interfaces.IServices;
+using System.Text.Json;
 
 [ApiController]
 [Route("api/[controller]")]
@@ -27,20 +28,22 @@ public class MessageController : ControllerBase
     [Authorize]
     public async Task<IActionResult> SendMessageAsync([FromBody] SendMessageDto messageDetails)
     {
-        //_logger.LogInformation($"Sending message to chat room: {messageDetails.ChatRoomId}");
+        _logger.LogInformation("✅ SendMessageAsync was hit.");
 
+        Console.WriteLine("SendMessage endpoint was hit");
         var result = await _messageService.SendMessageAsync(messageDetails);
 
         if (!result.Success)
+        {
+            Console.WriteLine("Error sending message");
             return BadRequest(result);
+        }
 
         await _hubContext.Clients.Group(messageDetails.ChatRoomId.ToString())
             .SendAsync("ReceiveMessage", result.Data);
-        //if (result.Success && result.Data != null)
-        //{
-        //    _logger.LogInformation(result.Data.ToString());
 
-        //}
+        Console.WriteLine("SendMessage endpoint has been hit");
+
         return Ok(result);
     }
 

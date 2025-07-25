@@ -17,7 +17,7 @@ namespace SpagChat.Application.Interfaces.IRepositories
         Task<bool> ChatRoomExistsAsync(Guid chatRoomId);
         Task<int> GetUnreadMessageCountAsync(Guid chatRoomId, Guid userId);
         //Task<List<Message>> GetUnreadMessagesAsync(Guid chatRoomId, Guid userId);
-        Task MarkMessagesAsReadAsync(Guid chatRoomId, Guid userId);
+        Task MarkMessagesAsReadAsync(List<Guid> messageIds, Guid userId);
         Task<bool> UpdateChatRoomName(Guid ChatRoomId, string newName);
     }
 }
